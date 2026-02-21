@@ -1090,6 +1090,24 @@
             background: #dc3545;
             color: white;
         }
+        .empty-state {
+            text-align: center;
+            padding: 3rem;
+            color: #666;
+            grid-column: 1/-1;
+        }
+        .empty-state i {
+            font-size: 4rem;
+            color: #f2c94c;
+            margin-bottom: 1rem;
+        }
+        .empty-state h3 {
+            font-size: 1.5rem;
+            margin-bottom: 1rem;
+        }
+        .empty-state p {
+            font-size: 1rem;
+        }
     </style>
 </head>
 <body>
@@ -1328,7 +1346,7 @@
                 <div id="adminProductsContainer"></div>
                 
                 <div class="admin-button-group" style="margin-top: 2rem;">
-                    <button class="admin-btn-danger" id="clearAllProductsBtn" style="flex:1; padding: 1rem;"><i class="fas fa-exclamation-triangle"></i> RESET TO DEFAULT PRODUCTS</button>
+                    <button class="admin-btn-danger" id="clearAllProductsBtn" style="flex:1; padding: 1rem;"><i class="fas fa-exclamation-triangle"></i> DELETE ALL PRODUCTS</button>
                 </div>
             </div>
         </div>
@@ -1379,14 +1397,6 @@
             const DELIVERY_FEE = 49;
             const ADMIN_PASSWORD = 'mustafa006';
 
-            // Default products
-            const defaultProducts = [
-                { id: 'SM-A1B2C3', name: 'AIR ZOOM', description: 'Ultraboost cushioning, perfect for running. Features responsive foam and breathable mesh.', price: 599, images: ['https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=400&h=400&fit=crop'], date: new Date().toISOString(), discount: null, discountCode: null },
-                { id: 'SM-D4E5F6', name: 'RUNNER 500', description: 'Breathable mesh, lightweight design.', price: 449, images: ['https://images.unsplash.com/photo-1560769629-975ec94e6a86?w=400&h=400&fit=crop'], date: new Date(Date.now()-10*86400000).toISOString(), discount: null, discountCode: null },
-                { id: 'SM-G7H8I9', name: 'COURT VISION', description: 'Classic low-top, everyday style.', price: 799, images: ['https://images.unsplash.com/photo-1606107557195-0e29a4b5b4aa?w=400&h=400&fit=crop'], date: new Date().toISOString(), discount: null, discountCode: null },
-                { id: 'SM-J0K1L2', name: 'TRAIL BLAZE', description: 'Rugged grip for outdoor adventures.', price: 999, images: ['https://images.unsplash.com/photo-1551107696-a4b0c5a0d9a2?w=400&h=400&fit=crop'], date: new Date().toISOString(), discount: null, discountCode: null }
-            ];
-
             // ========== FIREBASE SYNC FUNCTIONS ==========
             async function syncToFirebase(data, path) {
                 if (!window.firebaseDB) {
@@ -1403,7 +1413,7 @@
                 }
             }
 
-            async function syncFromFirebase(path, callback) {
+            async function syncFromFirebase(path) {
                 if (!window.firebaseDB) {
                     console.log('Firebase not ready');
                     return null;
@@ -1428,7 +1438,7 @@
                 });
             }
 
-            // Initialize data from Firebase or localStorage
+            // Initialize data from Firebase - NO DEFAULT PRODUCTS
             let products = [];
             let cart = JSON.parse(localStorage.getItem('solemates_cart')) || [];
             let comments = JSON.parse(localStorage.getItem(COMMENTS_KEY)) || {};
@@ -1443,9 +1453,10 @@
                     products = fbProducts;
                     localStorage.setItem(STORAGE_KEY, JSON.stringify(products));
                 } else {
-                    // Fallback to localStorage or defaults
-                    products = JSON.parse(localStorage.getItem(STORAGE_KEY)) || defaultProducts;
-                    // Save to Firebase
+                    // No products in Firebase, start with empty array
+                    products = [];
+                    localStorage.setItem(STORAGE_KEY, JSON.stringify(products));
+                    // Initialize empty products in Firebase
                     await syncToFirebase(products, 'products');
                 }
 
@@ -1562,16 +1573,30 @@
             function renderProducts() {
                 products = JSON.parse(localStorage.getItem(STORAGE_KEY)) || products;
                 productGrid.innerHTML = '';
+                
+                if (!products || products.length === 0) {
+                    // Show empty state
+                    const emptyDiv = document.createElement('div');
+                    emptyDiv.className = 'empty-state';
+                    emptyDiv.innerHTML = `
+                        <i class="fas fa-shoe-prints"></i>
+                        <h3>No Products Yet</h3>
+                        <p>Admin can add products from the admin panel</p>
+                    `;
+                    productGrid.appendChild(emptyDiv);
+                    return;
+                }
+                
                 products.forEach(prod => {
                     const dPrice = getDiscountedPrice(prod);
-                    const hasDiscount = prod.discount>0;
+                    const hasDiscount = prod.discount > 0;
                     const card = document.createElement('div');
                     card.className = 'product-card';
                     card.onclick = () => openProductModal(prod.id);
                     let badges = '';
                     if(isNew(prod)) badges += '<span class="new-badge">🔥 NEW</span>';
                     if(hasDiscount) badges += `<span class="discount-badge">-${prod.discount}%</span>`;
-                    card.innerHTML = `${badges}<img src="${prod.images?.[0]||'https://via.placeholder.com/200?text=Shoe'}" class="product-image"><div class="product-name">${prod.name}</div><div class="product-description">${(prod.description||'').substring(0,25)}...</div><div class="product-price">${hasDiscount?`<span class="original-price">₹${prod.price}</span>`:''} ₹${dPrice}</div><button class="add-btn" onclick="event.stopPropagation(); addToCart('${prod.id}')"><i class="fas fa-cart-plus"></i> add</button>`;
+                    card.innerHTML = `${badges}<img src="${prod.images?.[0] || 'https://via.placeholder.com/200?text=No+Image'}" class="product-image" onerror="this.src='https://via.placeholder.com/200?text=No+Image'"><div class="product-name">${prod.name}</div><div class="product-description">${(prod.description||'').substring(0,25)}...</div><div class="product-price">${hasDiscount ? `<span class="original-price">₹${prod.price}</span>` : ''} ₹${dPrice}</div><button class="add-btn" onclick="event.stopPropagation(); addToCart('${prod.id}')"><i class="fas fa-cart-plus"></i> add</button>`;
                     productGrid.appendChild(card);
                 });
             }
@@ -2041,14 +2066,14 @@
             };
             
             document.getElementById('clearAllProductsBtn').addEventListener('click', async()=>{ 
-                if(confirm('⚠️ Reset to default products? This will delete all current products and restore defaults.')) { 
-                    products = defaultProducts.map(p => ({...p, id: p.id, date: new Date().toISOString()}));
+                if(confirm('⚠️ Delete ALL products? This cannot be undone.')) { 
+                    products = []; 
                     localStorage.setItem(STORAGE_KEY,JSON.stringify(products)); 
                     await syncToFirebase(products, 'products');
                     resetAdminForm();
                     renderProducts(); 
                     renderAdminProducts(); 
-                    alert('✅ Products reset to default globally');
+                    alert('✅ All products deleted globally');
                 } 
             });
 
