@@ -1437,13 +1437,6 @@
                 window.firebaseOnValue(window.firebaseRef(window.firebaseDB, path), (snapshot) => {
                     if (snapshot.exists()) {
                         callback(snapshot.val());
-                    } else {
-                        // If data doesn't exist, initialize with empty array/object
-                        if (path === 'products') callback([]);
-                        else if (path === 'popup') callback({message: '', enabled: false});
-                        else if (path === 'comments') callback({});
-                        else if (path === 'ratings') callback({});
-                        else if (path === 'coupons') callback([]);
                     }
                 });
             }
@@ -1457,28 +1450,27 @@
 
             // ========== LOAD DATA FROM FIREBASE ==========
             async function initializeData() {
+                console.log("Initializing data from Firebase...");
+                
                 // Try to load products from Firebase
                 const fbProducts = await syncFromFirebase('products');
                 if (fbProducts && Array.isArray(fbProducts)) {
                     products = fbProducts;
                     localStorage.setItem(STORAGE_KEY, JSON.stringify(products));
+                    console.log("Loaded products from Firebase:", products.length);
                 } else {
                     // No products in Firebase, start with empty array
                     products = [];
                     localStorage.setItem(STORAGE_KEY, JSON.stringify(products));
                     // Initialize empty products in Firebase
                     await syncToFirebase(products, 'products');
+                    console.log("Initialized empty products in Firebase");
                 }
 
                 // Load popup from Firebase
                 const fbPopup = await syncFromFirebase('popup');
                 if (fbPopup) {
                     localStorage.setItem(POPUP_KEY, JSON.stringify(fbPopup));
-                } else {
-                    // Initialize empty popup
-                    const emptyPopup = {message: '', enabled: false};
-                    localStorage.setItem(POPUP_KEY, JSON.stringify(emptyPopup));
-                    await syncToFirebase(emptyPopup, 'popup');
                 }
 
                 // Load comments from Firebase
@@ -1486,10 +1478,6 @@
                 if (fbComments) {
                     comments = fbComments;
                     localStorage.setItem(COMMENTS_KEY, JSON.stringify(comments));
-                } else {
-                    comments = {};
-                    localStorage.setItem(COMMENTS_KEY, JSON.stringify(comments));
-                    await syncToFirebase(comments, 'comments');
                 }
 
                 // Load ratings from Firebase
@@ -1497,10 +1485,6 @@
                 if (fbRatings) {
                     ratings = fbRatings;
                     localStorage.setItem(RATINGS_KEY, JSON.stringify(ratings));
-                } else {
-                    ratings = {};
-                    localStorage.setItem(RATINGS_KEY, JSON.stringify(ratings));
-                    await syncToFirebase(ratings, 'ratings');
                 }
 
                 // Load coupons from Firebase
@@ -1508,18 +1492,14 @@
                 if (fbCoupons && Array.isArray(fbCoupons)) {
                     coupons = fbCoupons;
                     localStorage.setItem(COUPONS_KEY, JSON.stringify(coupons));
-                } else {
-                    coupons = [];
-                    localStorage.setItem(COUPONS_KEY, JSON.stringify(coupons));
-                    await syncToFirebase(coupons, 'coupons');
                 }
 
                 // Render everything
                 renderProducts();
                 updateCart();
                 loadPopup();
-                if (typeof renderAdminProducts === 'function') renderAdminProducts();
-                if (typeof renderAdminCoupons === 'function') renderAdminCoupons();
+                renderAdminProducts();
+                renderAdminCoupons();
             }
 
             // Listen for real-time updates
@@ -1529,7 +1509,7 @@
                         products = data;
                         localStorage.setItem(STORAGE_KEY, JSON.stringify(products));
                         renderProducts();
-                        if (typeof renderAdminProducts === 'function') renderAdminProducts();
+                        renderAdminProducts();
                     }
                 });
 
@@ -1557,7 +1537,7 @@
                 listenToFirebase('coupons', (data) => {
                     coupons = data || [];
                     localStorage.setItem(COUPONS_KEY, JSON.stringify(coupons));
-                    if (typeof renderAdminCoupons === 'function') renderAdminCoupons();
+                    renderAdminCoupons();
                 });
             }
 
@@ -1607,6 +1587,7 @@
 
             function renderProducts() {
                 try {
+                    // Always get latest from localStorage first
                     const stored = localStorage.getItem(STORAGE_KEY);
                     if (stored) {
                         products = JSON.parse(stored);
@@ -2385,11 +2366,12 @@
                 } 
             });
 
-            // Initialize everything
-            setTimeout(() => {
+            // Initialize everything when page loads
+            window.addEventListener('load', function() {
+                console.log("Page loaded, initializing data...");
                 initializeData();
                 setupFirebaseListeners();
-            }, 1000); // Small delay to ensure Firebase is loaded
+            });
 
             // Expose functions globally
             window.toggleAdminCoupon = toggleAdminCoupon;
