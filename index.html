@@ -1401,6 +1401,7 @@
             async function syncToFirebase(data, path) {
                 if (!window.firebaseDB) {
                     console.log('Firebase not ready, using localStorage');
+                    localStorage.setItem(path, JSON.stringify(data));
                     return false;
                 }
                 try {
@@ -1409,6 +1410,8 @@
                     return true;
                 } catch (error) {
                     console.error('Firebase sync error:', error);
+                    // Fallback to localStorage
+                    localStorage.setItem(path, JSON.stringify(data));
                     return false;
                 }
             }
@@ -1434,6 +1437,13 @@
                 window.firebaseOnValue(window.firebaseRef(window.firebaseDB, path), (snapshot) => {
                     if (snapshot.exists()) {
                         callback(snapshot.val());
+                    } else {
+                        // If data doesn't exist, initialize with empty array/object
+                        if (path === 'products') callback([]);
+                        else if (path === 'popup') callback({message: '', enabled: false});
+                        else if (path === 'comments') callback({});
+                        else if (path === 'ratings') callback({});
+                        else if (path === 'coupons') callback([]);
                     }
                 });
             }
@@ -1441,15 +1451,15 @@
             // Initialize data from Firebase - NO DEFAULT PRODUCTS
             let products = [];
             let cart = JSON.parse(localStorage.getItem('solemates_cart')) || [];
-            let comments = JSON.parse(localStorage.getItem(COMMENTS_KEY)) || {};
-            let ratings = JSON.parse(localStorage.getItem(RATINGS_KEY)) || {};
-            let coupons = JSON.parse(localStorage.getItem(COUPONS_KEY)) || [];
+            let comments = {};
+            let ratings = {};
+            let coupons = [];
 
             // ========== LOAD DATA FROM FIREBASE ==========
             async function initializeData() {
                 // Try to load products from Firebase
                 const fbProducts = await syncFromFirebase('products');
-                if (fbProducts) {
+                if (fbProducts && Array.isArray(fbProducts)) {
                     products = fbProducts;
                     localStorage.setItem(STORAGE_KEY, JSON.stringify(products));
                 } else {
@@ -1464,6 +1474,11 @@
                 const fbPopup = await syncFromFirebase('popup');
                 if (fbPopup) {
                     localStorage.setItem(POPUP_KEY, JSON.stringify(fbPopup));
+                } else {
+                    // Initialize empty popup
+                    const emptyPopup = {message: '', enabled: false};
+                    localStorage.setItem(POPUP_KEY, JSON.stringify(emptyPopup));
+                    await syncToFirebase(emptyPopup, 'popup');
                 }
 
                 // Load comments from Firebase
@@ -1471,6 +1486,10 @@
                 if (fbComments) {
                     comments = fbComments;
                     localStorage.setItem(COMMENTS_KEY, JSON.stringify(comments));
+                } else {
+                    comments = {};
+                    localStorage.setItem(COMMENTS_KEY, JSON.stringify(comments));
+                    await syncToFirebase(comments, 'comments');
                 }
 
                 // Load ratings from Firebase
@@ -1478,30 +1497,40 @@
                 if (fbRatings) {
                     ratings = fbRatings;
                     localStorage.setItem(RATINGS_KEY, JSON.stringify(ratings));
+                } else {
+                    ratings = {};
+                    localStorage.setItem(RATINGS_KEY, JSON.stringify(ratings));
+                    await syncToFirebase(ratings, 'ratings');
                 }
 
                 // Load coupons from Firebase
                 const fbCoupons = await syncFromFirebase('coupons');
-                if (fbCoupons) {
+                if (fbCoupons && Array.isArray(fbCoupons)) {
                     coupons = fbCoupons;
                     localStorage.setItem(COUPONS_KEY, JSON.stringify(coupons));
+                } else {
+                    coupons = [];
+                    localStorage.setItem(COUPONS_KEY, JSON.stringify(coupons));
+                    await syncToFirebase(coupons, 'coupons');
                 }
 
                 // Render everything
                 renderProducts();
                 updateCart();
                 loadPopup();
-                renderAdminProducts();
-                renderAdminCoupons();
+                if (typeof renderAdminProducts === 'function') renderAdminProducts();
+                if (typeof renderAdminCoupons === 'function') renderAdminCoupons();
             }
 
             // Listen for real-time updates
             function setupFirebaseListeners() {
                 listenToFirebase('products', (data) => {
-                    products = data;
-                    localStorage.setItem(STORAGE_KEY, JSON.stringify(products));
-                    renderProducts();
-                    renderAdminProducts();
+                    if (Array.isArray(data)) {
+                        products = data;
+                        localStorage.setItem(STORAGE_KEY, JSON.stringify(products));
+                        renderProducts();
+                        if (typeof renderAdminProducts === 'function') renderAdminProducts();
+                    }
                 });
 
                 listenToFirebase('popup', (data) => {
@@ -1510,7 +1539,7 @@
                 });
 
                 listenToFirebase('comments', (data) => {
-                    comments = data;
+                    comments = data || {};
                     localStorage.setItem(COMMENTS_KEY, JSON.stringify(comments));
                     if (currentProduct) {
                         loadComments(currentProduct.id);
@@ -1518,7 +1547,7 @@
                 });
 
                 listenToFirebase('ratings', (data) => {
-                    ratings = data;
+                    ratings = data || {};
                     localStorage.setItem(RATINGS_KEY, JSON.stringify(ratings));
                     if (currentProduct) {
                         loadRatings(currentProduct.id);
@@ -1526,9 +1555,9 @@
                 });
 
                 listenToFirebase('coupons', (data) => {
-                    coupons = data;
+                    coupons = data || [];
                     localStorage.setItem(COUPONS_KEY, JSON.stringify(coupons));
-                    renderAdminCoupons();
+                    if (typeof renderAdminCoupons === 'function') renderAdminCoupons();
                 });
             }
 
@@ -1567,203 +1596,411 @@
             const pickupCheckbox = document.getElementById('pickupCheckbox');
             const cartPickupCheckbox = document.getElementById('cartPickupCheckbox');
 
-            function isNew(p) { return (new Date() - new Date(p.date)) / 86400000 <= 7; }
-            function getDiscountedPrice(p) { return p.discount ? Math.round(p.price*(1-p.discount/100)) : p.price; }
+            function isNew(p) { 
+                if (!p || !p.date) return false;
+                return (new Date() - new Date(p.date)) / 86400000 <= 7; 
+            }
+            
+            function getDiscountedPrice(p) { 
+                return p.discount ? Math.round(p.price * (1 - p.discount/100)) : p.price; 
+            }
 
             function renderProducts() {
-                products = JSON.parse(localStorage.getItem(STORAGE_KEY)) || products;
-                productGrid.innerHTML = '';
-                
-                if (!products || products.length === 0) {
-                    // Show empty state
-                    const emptyDiv = document.createElement('div');
-                    emptyDiv.className = 'empty-state';
-                    emptyDiv.innerHTML = `
-                        <i class="fas fa-shoe-prints"></i>
-                        <h3>No Products Yet</h3>
-                        <p>Admin can add products from the admin panel</p>
-                    `;
-                    productGrid.appendChild(emptyDiv);
-                    return;
+                try {
+                    const stored = localStorage.getItem(STORAGE_KEY);
+                    if (stored) {
+                        products = JSON.parse(stored);
+                    }
+                    
+                    productGrid.innerHTML = '';
+                    
+                    if (!products || products.length === 0) {
+                        // Show empty state
+                        const emptyDiv = document.createElement('div');
+                        emptyDiv.className = 'empty-state';
+                        emptyDiv.innerHTML = `
+                            <i class="fas fa-shoe-prints"></i>
+                            <h3>No Products Yet</h3>
+                            <p>Admin can add products from the admin panel</p>
+                        `;
+                        productGrid.appendChild(emptyDiv);
+                        return;
+                    }
+                    
+                    products.forEach(prod => {
+                        if (!prod || !prod.id) return;
+                        
+                        const dPrice = getDiscountedPrice(prod);
+                        const hasDiscount = prod.discount > 0;
+                        const card = document.createElement('div');
+                        card.className = 'product-card';
+                        card.onclick = () => openProductModal(prod.id);
+                        
+                        let badges = '';
+                        if (isNew(prod)) badges += '<span class="new-badge">🔥 NEW</span>';
+                        if (hasDiscount) badges += `<span class="discount-badge">-${prod.discount}%</span>`;
+                        
+                        const imageUrl = prod.images && prod.images.length > 0 ? prod.images[0] : 'https://via.placeholder.com/200?text=No+Image';
+                        
+                        card.innerHTML = `
+                            ${badges}
+                            <img src="${imageUrl}" class="product-image" onerror="this.src='https://via.placeholder.com/200?text=No+Image'">
+                            <div class="product-name">${prod.name || 'Unnamed Product'}</div>
+                            <div class="product-description">${(prod.description || '').substring(0,25)}...</div>
+                            <div class="product-price">
+                                ${hasDiscount ? `<span class="original-price">₹${prod.price}</span>` : ''} 
+                                ₹${dPrice}
+                            </div>
+                            <button class="add-btn" onclick="event.stopPropagation(); addToCart('${prod.id}')">
+                                <i class="fas fa-cart-plus"></i> add
+                            </button>
+                        `;
+                        productGrid.appendChild(card);
+                    });
+                } catch (e) {
+                    console.error('Error rendering products:', e);
                 }
-                
-                products.forEach(prod => {
-                    const dPrice = getDiscountedPrice(prod);
-                    const hasDiscount = prod.discount > 0;
-                    const card = document.createElement('div');
-                    card.className = 'product-card';
-                    card.onclick = () => openProductModal(prod.id);
-                    let badges = '';
-                    if(isNew(prod)) badges += '<span class="new-badge">🔥 NEW</span>';
-                    if(hasDiscount) badges += `<span class="discount-badge">-${prod.discount}%</span>`;
-                    card.innerHTML = `${badges}<img src="${prod.images?.[0] || 'https://via.placeholder.com/200?text=No+Image'}" class="product-image" onerror="this.src='https://via.placeholder.com/200?text=No+Image'"><div class="product-name">${prod.name}</div><div class="product-description">${(prod.description||'').substring(0,25)}...</div><div class="product-price">${hasDiscount ? `<span class="original-price">₹${prod.price}</span>` : ''} ₹${dPrice}</div><button class="add-btn" onclick="event.stopPropagation(); addToCart('${prod.id}')"><i class="fas fa-cart-plus"></i> add</button>`;
-                    productGrid.appendChild(card);
-                });
             }
 
             window.addToCart = function(productId) {
-                const product = products.find(p=>p.id===productId);
-                if(!product) return;
+                const product = products.find(p => p.id === productId);
+                if (!product) return;
+                
                 let price = getDiscountedPrice(product);
-                if(appliedCoupon) price = Math.round(price*(1-appliedCoupon.discount/100));
-                const existing = cart.find(i=>i.id===productId);
-                if(existing) existing.quantity++;
-                else cart.push({...product, price, quantity:1});
+                if (appliedCoupon) {
+                    price = Math.round(price * (1 - appliedCoupon.discount/100));
+                }
+                
+                const existing = cart.find(i => i.id === productId);
+                if (existing) {
+                    existing.quantity++;
+                } else {
+                    cart.push({...product, price, quantity: 1});
+                }
                 updateCart();
-                cartOverlay.style.display='flex';
-                setTimeout(()=>cartOverlay.style.display='none',2000);
+                cartOverlay.style.display = 'flex';
+                setTimeout(() => cartOverlay.style.display = 'none', 2000);
             };
             
             window.removeFromCart = function(id) { 
-                cart = cart.filter(i=>i.id!==id); 
+                cart = cart.filter(i => i.id !== id); 
                 updateCart(); 
             };
 
             function updateCart() {
                 localStorage.setItem('solemates_cart', JSON.stringify(cart));
-                cartCountSpan.textContent = cart.reduce((a,i)=>a+i.quantity,0);
+                cartCountSpan.textContent = cart.reduce((a, i) => a + (i.quantity || 0), 0);
                 renderCartSidebar();
             }
             
             function renderCartSidebar() {
-                cartItemsContainer.innerHTML = cart.length===0 ? '<p style="padding:1.5rem; text-align:center;">cart empty</p>' : '';
-                cart.forEach(i=>{
-                    const d=document.createElement('div'); d.className='cart-item';
-                    d.innerHTML=`<img src="${i.images?.[0]||'https://via.placeholder.com/60'}" class="cart-item-image"><div class="cart-item-info"><strong>${i.name}</strong><div>₹${i.price} x ${i.quantity}</div></div><div>₹${i.price*i.quantity}</div><button class="remove-item" onclick="removeFromCart('${i.id}')"><i class="fas fa-trash"></i></button>`;
-                    cartItemsContainer.appendChild(d);
-                });
-                const subtotal = cart.reduce((s,i)=>s+i.price*i.quantity,0);
-                const isPickup = (pickupCheckbox?.checked)||(cartPickupCheckbox?.checked);
-                let delivery = isPickup ? 0 : (subtotal<499 ? DELIVERY_FEE : 0);
-                subtotalAmount.textContent=`₹${subtotal}`;
-                deliveryAmount.textContent=delivery>0 ? `₹${delivery}` : 'Free';
-                grandTotal.textContent=`₹${subtotal+delivery}`;
-                freeDeliveryMsg.innerHTML = isPickup ? '✅ store pickup' : (subtotal>=499 ? '✅ FREE DELIVERY' : `🛒 add ₹${499-subtotal} more for free delivery`);
+                cartItemsContainer.innerHTML = '';
+                
+                if (cart.length === 0) {
+                    cartItemsContainer.innerHTML = '<p style="padding:1.5rem; text-align:center;">cart empty</p>';
+                } else {
+                    cart.forEach(i => {
+                        const d = document.createElement('div'); 
+                        d.className = 'cart-item';
+                        const imageUrl = i.images && i.images.length > 0 ? i.images[0] : 'https://via.placeholder.com/60';
+                        
+                        d.innerHTML = `
+                            <img src="${imageUrl}" class="cart-item-image" onerror="this.src='https://via.placeholder.com/60'">
+                            <div class="cart-item-info">
+                                <strong>${i.name || 'Shoe'}</strong>
+                                <div>₹${i.price || 0} x ${i.quantity || 0}</div>
+                            </div>
+                            <div>₹${(i.price || 0) * (i.quantity || 0)}</div>
+                            <button class="remove-item" onclick="removeFromCart('${i.id}')">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        `;
+                        cartItemsContainer.appendChild(d);
+                    });
+                }
+                
+                const subtotal = cart.reduce((s, i) => s + ((i.price || 0) * (i.quantity || 0)), 0);
+                const isPickup = (pickupCheckbox && pickupCheckbox.checked) || (cartPickupCheckbox && cartPickupCheckbox.checked);
+                let delivery = isPickup ? 0 : (subtotal < 499 ? DELIVERY_FEE : 0);
+                
+                subtotalAmount.textContent = `₹${subtotal}`;
+                deliveryAmount.textContent = delivery > 0 ? `₹${delivery}` : 'Free';
+                grandTotal.textContent = `₹${subtotal + delivery}`;
+                
+                freeDeliveryMsg.innerHTML = isPickup ? 
+                    '✅ store pickup' : 
+                    (subtotal >= 499 ? '✅ FREE DELIVERY' : `🛒 add ₹${499 - subtotal} more for free delivery`);
             }
 
             function openProductModal(id) {
-                const p = products.find(p=>p.id===id); if(!p) return;
-                currentProduct = p; let dPrice = getDiscountedPrice(p); if(appliedCoupon) dPrice = Math.round(dPrice*(1-appliedCoupon.discount/100));
-                modalTitle.textContent = p.name; modalDescription.textContent = p.description; modalPrice.textContent = `₹${dPrice}`;
-                if(p.discount) { modalOriginalPrice.textContent = `₹${p.price}`; modalOriginalPrice.style.display='inline'; } else modalOriginalPrice.style.display='none';
-                modalMainImage.src = p.images?.[0]||''; thumbnailGrid.innerHTML='';
-                if(p.images) p.images.forEach((img,i)=>{ let t=document.createElement('img'); t.src=img; t.className=`thumbnail ${i===0?'active':''}`; t.onclick=()=>{ modalMainImage.src=img; document.querySelectorAll('.thumbnail').forEach(th=>th.classList.remove('active')); t.classList.add('active'); }; thumbnailGrid.appendChild(t); });
-                loadRatings(id); loadComments(id); modal.style.display='block'; document.body.style.overflow='hidden';
+                const p = products.find(p => p.id === id); 
+                if (!p) return;
+                
+                currentProduct = p; 
+                let dPrice = getDiscountedPrice(p); 
+                if (appliedCoupon) {
+                    dPrice = Math.round(dPrice * (1 - appliedCoupon.discount/100));
+                }
+                
+                modalTitle.textContent = p.name || 'Product'; 
+                modalDescription.textContent = p.description || 'No description available'; 
+                modalPrice.textContent = `₹${dPrice}`;
+                
+                if (p.discount) { 
+                    modalOriginalPrice.textContent = `₹${p.price}`; 
+                    modalOriginalPrice.style.display = 'inline'; 
+                } else {
+                    modalOriginalPrice.style.display = 'none';
+                }
+                
+                modalMainImage.src = (p.images && p.images.length > 0) ? p.images[0] : ''; 
+                thumbnailGrid.innerHTML = '';
+                
+                if (p.images && p.images.length > 0) {
+                    p.images.forEach((img, i) => { 
+                        let t = document.createElement('img'); 
+                        t.src = img; 
+                        t.className = `thumbnail ${i === 0 ? 'active' : ''}`; 
+                        t.onclick = () => { 
+                            modalMainImage.src = img; 
+                            document.querySelectorAll('.thumbnail').forEach(th => th.classList.remove('active')); 
+                            t.classList.add('active'); 
+                        }; 
+                        thumbnailGrid.appendChild(t); 
+                    });
+                }
+                
+                loadRatings(id); 
+                loadComments(id); 
+                modal.style.display = 'block'; 
+                document.body.style.overflow = 'hidden';
             }
             
             function loadRatings(id) { 
-                let r = ratings[id] || []; 
-                let avg = r.length ? (r.reduce((a,b)=>a+b.rating,0)/r.length).toFixed(1) : 0; 
+                let r = (ratings && ratings[id]) || []; 
+                let avg = r.length ? (r.reduce((a, b) => a + (b.rating || 0), 0) / r.length).toFixed(1) : 0; 
                 averageRatingSpan.textContent = `(${avg} avg, ${r.length} reviews)`; 
                 reviewCountSpan.textContent = `(${r.length})`; 
             }
             
             function loadComments(id) { 
-                let c = comments[id] || []; 
-                commentsList.innerHTML = c.length ? '' : '<div class="no-reviews">No reviews yet.</div>'; 
-                c.sort((a,b)=>new Date(b.date)-new Date(a.date)).forEach(cmt=>{ 
-                    let d=document.createElement('div'); d.className='comment-item'; 
-                    d.innerHTML=`<div class="comment-header"><span class="comment-author">${cmt.author}</span><span class="comment-rating">${'★'.repeat(cmt.rating)}${'☆'.repeat(5-cmt.rating)}</span></div><p class="comment-text">${cmt.text}</p><div class="comment-date">${new Date(cmt.date).toLocaleDateString()}</div>`; 
-                    commentsList.appendChild(d); 
-                }); 
+                let c = (comments && comments[id]) || []; 
+                commentsList.innerHTML = ''; 
+                
+                if (c.length === 0) {
+                    commentsList.innerHTML = '<div class="no-reviews">No reviews yet.</div>';
+                } else {
+                    c.sort((a, b) => new Date(b.date) - new Date(a.date)).forEach(cmt => { 
+                        let d = document.createElement('div'); 
+                        d.className = 'comment-item'; 
+                        
+                        // Generate star rating
+                        let stars = '';
+                        for (let i = 0; i < 5; i++) {
+                            stars += i < cmt.rating ? '★' : '☆';
+                        }
+                        
+                        d.innerHTML = `
+                            <div class="comment-header">
+                                <span class="comment-author">${cmt.author || 'Anonymous'}</span>
+                                <span class="comment-rating">${stars}</span>
+                            </div>
+                            <p class="comment-text">${cmt.text || ''}</p>
+                            <div class="comment-date">${new Date(cmt.date).toLocaleDateString()}</div>
+                        `; 
+                        commentsList.appendChild(d); 
+                    });
+                }
             }
 
             window.addComment = async function() {
-                let name = document.getElementById('commentName').value.trim()||'Guest', text = document.getElementById('commentText').value.trim();
-                if(!text || selectedRating===0) return alert('Write review and select rating');
-                if(!comments[currentProduct.id]) comments[currentProduct.id]=[];
-                comments[currentProduct.id].push({author:name, text, rating:selectedRating, date:new Date().toISOString()});
-                if(!ratings[currentProduct.id]) ratings[currentProduct.id]=[];
-                ratings[currentProduct.id].push({rating:selectedRating, date:new Date().toISOString()});
+                let name = document.getElementById('commentName').value.trim() || 'Guest';
+                let text = document.getElementById('commentText').value.trim();
                 
-                localStorage.setItem(COMMENTS_KEY,JSON.stringify(comments)); 
-                localStorage.setItem(RATINGS_KEY,JSON.stringify(ratings));
+                if (!text || selectedRating === 0) {
+                    alert('Please write a review and select a rating');
+                    return;
+                }
+                
+                if (!currentProduct || !currentProduct.id) {
+                    alert('No product selected');
+                    return;
+                }
+                
+                if (!comments[currentProduct.id]) {
+                    comments[currentProduct.id] = [];
+                }
+                
+                comments[currentProduct.id].push({
+                    author: name, 
+                    text: text, 
+                    rating: selectedRating, 
+                    date: new Date().toISOString()
+                });
+                
+                if (!ratings[currentProduct.id]) {
+                    ratings[currentProduct.id] = [];
+                }
+                
+                ratings[currentProduct.id].push({
+                    rating: selectedRating, 
+                    date: new Date().toISOString()
+                });
+                
+                localStorage.setItem(COMMENTS_KEY, JSON.stringify(comments)); 
+                localStorage.setItem(RATINGS_KEY, JSON.stringify(ratings));
                 
                 // Sync to Firebase
                 await syncToFirebase(comments, 'comments');
                 await syncToFirebase(ratings, 'ratings');
                 
-                document.getElementById('commentText').value=''; selectedRating=0; updateRatingInput(); 
-                loadComments(currentProduct.id); loadRatings(currentProduct.id);
+                document.getElementById('commentText').value = ''; 
+                selectedRating = 0; 
+                updateRatingInput(); 
+                loadComments(currentProduct.id); 
+                loadRatings(currentProduct.id);
             };
             
             function updateRatingInput() { 
-                document.querySelectorAll('#ratingInput span').forEach((s,i)=>{ 
-                    s.innerHTML = i<selectedRating ? '★' : '☆'; 
-                    s.style.color = i<selectedRating ? '#f2c94c' : '#ccc'; 
+                document.querySelectorAll('#ratingInput span').forEach((s, i) => { 
+                    s.innerHTML = i < selectedRating ? '★' : '☆'; 
+                    s.style.color = i < selectedRating ? '#f2c94c' : '#ccc'; 
                 }); 
             }
             
-            document.querySelectorAll('#ratingInput span').forEach(s=>s.addEventListener('click',function(){ 
-                selectedRating=parseInt(this.dataset.rating); 
-                updateRatingInput(); 
-            }));
+            document.querySelectorAll('#ratingInput span').forEach(s => {
+                s.addEventListener('click', function() { 
+                    selectedRating = parseInt(this.dataset.rating); 
+                    updateRatingInput(); 
+                });
+            });
 
-            document.getElementById('mainImageContainer').addEventListener('click',function(){ 
-                zoomed=!zoomed; 
-                modalMainImage.classList.toggle('zoomed',zoomed); 
+            document.getElementById('mainImageContainer').addEventListener('click', function() { 
+                zoomed = !zoomed; 
+                modalMainImage.classList.toggle('zoomed', zoomed); 
             });
             
             shareLocationBtn.addEventListener('click', ()=>{
-                if(!navigator.geolocation) return alert('Geolocation not supported');
-                navigator.geolocation.getCurrentPosition(pos=>{
+                if (!navigator.geolocation) {
+                    alert('Geolocation not supported');
+                    return;
+                }
+                
+                navigator.geolocation.getCurrentPosition(pos => {
                     let map = `https://www.google.com/maps?q=${pos.coords.latitude},${pos.coords.longitude}`;
-                    let subtotal = cart.reduce((s,i)=>s+i.price*i.quantity,0);
-                    let isPickup = (pickupCheckbox?.checked)||(cartPickupCheckbox?.checked);
-                    let delivery = isPickup ? 0 : (subtotal<499 ? DELIVERY_FEE : 0);
-                    let total = subtotal+delivery;
-                    let msg = `*New order from SOLE MATES*%0A`+cart.map(i=>`${i.name} - ${i.quantity} x ₹${i.price} = ₹${i.quantity*i.price}`).join('%0A')+`%0A*Subtotal: ₹${subtotal}*%0A${isPickup?'Store Pickup':delivery>0?'Delivery: ₹'+delivery:'Delivery: Free'}%0A*Grand Total: ₹${total}*%0A📍 ${map}`;
-                    window.open(`https://wa.me/${WHATSAPP_NUMBER}?text=${msg}`,'_blank');
-                },()=>alert('Location access denied'));
+                    let subtotal = cart.reduce((s, i) => s + ((i.price || 0) * (i.quantity || 0)), 0);
+                    let isPickup = (pickupCheckbox && pickupCheckbox.checked) || (cartPickupCheckbox && cartPickupCheckbox.checked);
+                    let delivery = isPickup ? 0 : (subtotal < 499 ? DELIVERY_FEE : 0);
+                    let total = subtotal + delivery;
+                    
+                    let orderItems = cart.map(i => 
+                        `${i.name || 'Shoe'} - ${i.quantity || 0} x ₹${i.price || 0} = ₹${(i.price || 0) * (i.quantity || 0)}`
+                    ).join('%0A');
+                    
+                    let msg = `*New order from SOLE MATES*%0A%0A${orderItems}%0A%0A*Subtotal: ₹${subtotal}*%0A${isPickup ? 'Store Pickup' : delivery > 0 ? 'Delivery: ₹' + delivery : 'Delivery: Free'}%0A*Grand Total: ₹${total}*%0A%0A📍 ${map}`;
+                    
+                    window.open(`https://wa.me/${WHATSAPP_NUMBER}?text=${msg}`, '_blank');
+                }, () => alert('Location access denied'));
             });
             
-            whatsappBtn.addEventListener('click',()=>{
-                if(!cart.length) return alert('Cart empty');
-                let subtotal = cart.reduce((s,i)=>s+i.price*i.quantity,0);
-                let isPickup = (pickupCheckbox?.checked)||(cartPickupCheckbox?.checked);
-                let delivery = isPickup ? 0 : (subtotal<499 ? DELIVERY_FEE : 0);
-                let total = subtotal+delivery;
-                let msg = `*New order from SOLE MATES*%0A`+cart.map(i=>`${i.name} - ${i.quantity} x ₹${i.price} = ₹${i.quantity*i.price}`).join('%0A')+`%0A*Subtotal: ₹${subtotal}*%0A${isPickup?'Store Pickup':delivery>0?'Delivery: ₹'+delivery:'Delivery: Free'}%0A*Grand Total: ₹${total}*%0A🛍️ Thank you!`;
-                window.open(`https://wa.me/${WHATSAPP_NUMBER}?text=${msg}`,'_blank');
+            whatsappBtn.addEventListener('click', () => {
+                if (!cart.length) {
+                    alert('Cart empty');
+                    return;
+                }
+                
+                let subtotal = cart.reduce((s, i) => s + ((i.price || 0) * (i.quantity || 0)), 0);
+                let isPickup = (pickupCheckbox && pickupCheckbox.checked) || (cartPickupCheckbox && cartPickupCheckbox.checked);
+                let delivery = isPickup ? 0 : (subtotal < 499 ? DELIVERY_FEE : 0);
+                let total = subtotal + delivery;
+                
+                let orderItems = cart.map(i => 
+                    `${i.name || 'Shoe'} - ${i.quantity || 0} x ₹${i.price || 0} = ₹${(i.price || 0) * (i.quantity || 0)}`
+                ).join('%0A');
+                
+                let msg = `*New order from SOLE MATES*%0A%0A${orderItems}%0A%0A*Subtotal: ₹${subtotal}*%0A${isPickup ? 'Store Pickup' : delivery > 0 ? 'Delivery: ₹' + delivery : 'Delivery: Free'}%0A*Grand Total: ₹${total}*%0A%0A🛍️ Thank you!`;
+                
+                window.open(`https://wa.me/${WHATSAPP_NUMBER}?text=${msg}`, '_blank');
             });
             
-            window.applyCoupon = function(){
+            window.applyCoupon = function() {
                 let code = document.getElementById('couponCode').value.trim().toUpperCase();
-                let c = coupons.find(c=>c.code===code && c.active);
-                if(c) { 
-                    appliedCoupon=c; 
-                    document.getElementById('couponMessage').innerHTML=`✅ Coupon applied! ${c.discount}% off`; 
-                    if(currentProduct) modalPrice.textContent = `₹${Math.round(getDiscountedPrice(currentProduct)*(1-c.discount/100))}`; 
+                let c = coupons.find(c => c && c.code === code && c.active);
+                
+                if (c) { 
+                    appliedCoupon = c; 
+                    document.getElementById('couponMessage').innerHTML = `✅ Coupon applied! ${c.discount}% off`; 
+                    if (currentProduct) {
+                        let price = getDiscountedPrice(currentProduct);
+                        price = Math.round(price * (1 - c.discount/100));
+                        modalPrice.textContent = `₹${price}`; 
+                    }
                     updateCart(); 
                 } else { 
-                    appliedCoupon=null; 
-                    document.getElementById('couponMessage').innerHTML='❌ Invalid coupon'; 
+                    appliedCoupon = null; 
+                    document.getElementById('couponMessage').innerHTML = '❌ Invalid coupon'; 
                     updateCart(); 
                 }
             };
             
             function loadPopup() {
                 let pd = localStorage.getItem(POPUP_KEY);
-                if(pd) { 
-                    let {message,enabled}=JSON.parse(pd); 
-                    if(enabled && message) { 
-                        popupMessage.textContent=message; 
-                        popupBanner.style.display='block'; 
-                    } else popupBanner.style.display='none'; 
-                } else popupBanner.style.display='none';
+                if (pd) { 
+                    try {
+                        let {message, enabled} = JSON.parse(pd); 
+                        if (enabled && message) { 
+                            popupMessage.textContent = message; 
+                            popupBanner.style.display = 'block'; 
+                        } else {
+                            popupBanner.style.display = 'none'; 
+                        }
+                    } catch (e) {
+                        popupBanner.style.display = 'none';
+                    }
+                } else {
+                    popupBanner.style.display = 'none';
+                }
             }
             
-            closePopup.addEventListener('click',()=>popupBanner.style.display='none');
+            closePopup.addEventListener('click', () => popupBanner.style.display = 'none');
 
             // Event listeners
-            cartToggle.addEventListener('click',()=>{ renderCartSidebar(); cartOverlay.style.display='flex'; });
-            closeCartBtn.addEventListener('click',()=>cartOverlay.style.display='none');
-            cartOverlay.addEventListener('click',e=>{ if(e.target===cartOverlay) cartOverlay.style.display='none'; });
-            closeModal.addEventListener('click',()=>{ modal.style.display='none'; document.body.style.overflow='auto'; zoomed=false; modalMainImage.classList.remove('zoomed'); });
-            modal.addEventListener('click',e=>{ if(e.target===modal) { modal.style.display='none'; document.body.style.overflow='auto'; zoomed=false; } });
-            modalAddToCart.addEventListener('click',()=>{ if(currentProduct) { addToCart(currentProduct.id); modal.style.display='none'; document.body.style.overflow='auto'; } });
-            if(pickupCheckbox) pickupCheckbox.addEventListener('change',updateCart);
-            if(cartPickupCheckbox) cartPickupCheckbox.addEventListener('change',updateCart);
+            cartToggle.addEventListener('click', () => { 
+                renderCartSidebar(); 
+                cartOverlay.style.display = 'flex'; 
+            });
+            
+            closeCartBtn.addEventListener('click', () => cartOverlay.style.display = 'none');
+            
+            cartOverlay.addEventListener('click', e => { 
+                if (e.target === cartOverlay) cartOverlay.style.display = 'none'; 
+            });
+            
+            closeModal.addEventListener('click', () => { 
+                modal.style.display = 'none'; 
+                document.body.style.overflow = 'auto'; 
+                zoomed = false; 
+                modalMainImage.classList.remove('zoomed'); 
+            });
+            
+            modal.addEventListener('click', e => { 
+                if (e.target === modal) { 
+                    modal.style.display = 'none'; 
+                    document.body.style.overflow = 'auto'; 
+                    zoomed = false; 
+                } 
+            });
+            
+            modalAddToCart.addEventListener('click', () => { 
+                if (currentProduct) { 
+                    addToCart(currentProduct.id); 
+                    modal.style.display = 'none'; 
+                    document.body.style.overflow = 'auto'; 
+                } 
+            });
+            
+            if (pickupCheckbox) pickupCheckbox.addEventListener('change', updateCart);
+            if (cartPickupCheckbox) cartPickupCheckbox.addEventListener('change', updateCart);
 
             // ========== ADMIN FUNCTIONS ==========
             let editingProductId = null;
@@ -1787,18 +2024,20 @@
 
             window.promptAdminPassword = function() {
                 let pwd = prompt('Enter admin password:');
-                if(pwd === ADMIN_PASSWORD) {
+                if (pwd === ADMIN_PASSWORD) {
                     document.getElementById('adminPanel').style.display = 'block';
                     resetAdminForm();
                     renderAdminProducts(); 
                     renderAdminCoupons();
-                } else alert('Incorrect password');
+                } else {
+                    alert('Incorrect password');
+                }
             };
             
             window.toggleAdminPanel = function() {
                 let panel = document.getElementById('adminPanel');
-                panel.style.display = panel.style.display==='block' ? 'none' : 'block';
-                if(panel.style.display==='block') { 
+                panel.style.display = panel.style.display === 'block' ? 'none' : 'block';
+                if (panel.style.display === 'block') { 
                     resetAdminForm();
                     renderAdminProducts(); 
                     renderAdminCoupons(); 
@@ -1817,8 +2056,8 @@
                 adminUpdate.style.display = 'none';
                 cancelEditBtn.style.display = 'none';
                 editModeIndicator.style.display = 'none';
-                if(adminStream) {
-                    adminStream.getTracks().forEach(t=>t.stop());
+                if (adminStream) {
+                    adminStream.getTracks().forEach(t => t.stop());
                     adminVideo.style.display = 'none';
                     startCam.style.display = 'inline-block';
                     captureBtn.style.display = 'none';
@@ -1852,13 +2091,19 @@
                 
                 const name = adminName.value.trim() || 'New Arrival';
                 const desc = adminDesc.value.trim() || 'Stylish footwear';
-                const price = parseFloat(adminPrice.value) || 0;
+                const price = parseFloat(adminPrice.value);
+                
+                if (isNaN(price) || price <= 0) {
+                    alert('Please enter a valid price');
+                    return;
+                }
                 
                 if (adminImages.length === 0) {
                     alert('Please add at least one image');
                     return;
                 }
 
+                // Update the product in the array
                 products = products.map(p => {
                     if (p.id === editingProductId) {
                         return {
@@ -1867,12 +2112,13 @@
                             description: desc,
                             price: price,
                             images: adminImages,
-                            date: p.date
+                            date: p.date // Keep original date
                         };
                     }
                     return p;
                 });
 
+                // Save to localStorage and sync to Firebase
                 localStorage.setItem(STORAGE_KEY, JSON.stringify(products));
                 await syncToFirebase(products, 'products');
                 
@@ -1882,31 +2128,35 @@
                 alert('✅ Product updated globally!');
             });
 
-            startCam.addEventListener('click', async()=>{
+            startCam.addEventListener('click', async () => {
                 try { 
-                    adminStream = await navigator.mediaDevices.getUserMedia({video:true}); 
+                    adminStream = await navigator.mediaDevices.getUserMedia({video: true}); 
                     adminVideo.srcObject = adminStream; 
-                    adminVideo.style.display='block'; 
-                    startCam.style.display='none'; 
-                    captureBtn.style.display='inline-block'; 
-                } catch(e){ alert('Camera error: ' + e.message); }
+                    adminVideo.style.display = 'block'; 
+                    startCam.style.display = 'none'; 
+                    captureBtn.style.display = 'inline-block'; 
+                } catch(e) { 
+                    alert('Camera error: ' + e.message); 
+                }
             });
             
-            captureBtn.addEventListener('click',()=>{
-                if(!adminStream) return;
+            captureBtn.addEventListener('click', () => {
+                if (!adminStream) return;
+                
                 let canvas = document.createElement('canvas'); 
-                canvas.width = adminVideo.videoWidth; 
-                canvas.height = adminVideo.videoHeight;
-                canvas.getContext('2d').drawImage(adminVideo,0,0); 
+                canvas.width = adminVideo.videoWidth || 640; 
+                canvas.height = adminVideo.videoHeight || 480;
+                canvas.getContext('2d').drawImage(adminVideo, 0, 0, canvas.width, canvas.height); 
                 adminImages.push(canvas.toDataURL('image/jpeg')); 
                 updateAdminImageGrid();
             });
             
-            uploadBtn.addEventListener('click',()=> fileInput.click());
-            fileInput.addEventListener('change',(e)=>{
-                Array.from(e.target.files).forEach(f=>{ 
-                    let r=new FileReader(); 
-                    r.onload=ev=>{ 
+            uploadBtn.addEventListener('click', () => fileInput.click());
+            
+            fileInput.addEventListener('change', (e) => {
+                Array.from(e.target.files).forEach(f => { 
+                    let r = new FileReader(); 
+                    r.onload = ev => { 
                         adminImages.push(ev.target.result); 
                         updateAdminImageGrid(); 
                     }; 
@@ -1920,44 +2170,80 @@
                     adminImageGrid.innerHTML = '<p style="color:#666; text-align:center; grid-column:1/-1;">No images added yet</p>';
                     return;
                 }
-                adminImages.forEach((img,i)=>{ 
-                    let d=document.createElement('div'); 
-                    d.className='admin-image-item'; 
-                    d.innerHTML=`<img src="${img}"><button class="admin-remove-img" onclick="removeAdminImage(${i})">&times;</button>`; 
+                adminImages.forEach((img, i) => { 
+                    let d = document.createElement('div'); 
+                    d.className = 'admin-image-item'; 
+                    d.innerHTML = `<img src="${img}"><button class="admin-remove-img" onclick="removeAdminImage(${i})">&times;</button>`; 
                     adminImageGrid.appendChild(d); 
                 });
             }
             
-            window.removeAdminImage = (i) => { adminImages.splice(i,1); updateAdminImageGrid(); };
+            window.removeAdminImage = (i) => { 
+                adminImages.splice(i, 1); 
+                updateAdminImageGrid(); 
+            };
 
-            adminPublish.addEventListener('click', async()=>{
-                let name = adminName.value.trim() || 'New Arrival';
-                let desc = adminDesc.value.trim() || 'Stylish footwear';
-                let price = parseFloat(adminPrice.value) || 499;
-                if(!adminImages.length) return alert('Please add at least one image');
-                let id = 'SM-' + Math.random().toString(36).substring(2,8).toUpperCase();
-                let newProd = { id, name, description:desc, price, images:[...adminImages], date:new Date().toISOString(), discount:null, discountCode:null };
+            adminPublish.addEventListener('click', async () => {
+                const name = adminName.value.trim() || 'New Arrival';
+                const desc = adminDesc.value.trim() || 'Stylish footwear';
+                const price = parseFloat(adminPrice.value);
+                
+                if (isNaN(price) || price <= 0) {
+                    alert('Please enter a valid price');
+                    return;
+                }
+                
+                if (adminImages.length === 0) {
+                    alert('Please add at least one image');
+                    return;
+                }
+                
+                // Generate unique ID
+                let id = 'SM-' + Math.random().toString(36).substring(2, 8).toUpperCase();
+                
+                let newProd = { 
+                    id, 
+                    name, 
+                    description: desc, 
+                    price, 
+                    images: [...adminImages], 
+                    date: new Date().toISOString(), 
+                    discount: null, 
+                    discountCode: null 
+                };
+                
+                // Add to products array
                 products.push(newProd); 
                 
-                localStorage.setItem(STORAGE_KEY,JSON.stringify(products));
+                // Save to localStorage and sync to Firebase
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(products));
                 await syncToFirebase(products, 'products');
                 
                 resetAdminForm();
-                if(adminStream) adminStream.getTracks().forEach(t=>t.stop()); 
-                adminVideo.style.display='none'; 
-                startCam.style.display='inline-block'; 
-                captureBtn.style.display='none';
+                
+                if (adminStream) {
+                    adminStream.getTracks().forEach(t => t.stop()); 
+                }
+                
+                adminVideo.style.display = 'none'; 
+                startCam.style.display = 'inline-block'; 
+                captureBtn.style.display = 'none';
+                
                 renderProducts(); 
                 renderAdminProducts(); 
                 alert('✅ Product published globally!');
             });
 
-            document.getElementById('applyGlobalDiscountBtn').addEventListener('click', async()=>{
+            document.getElementById('applyGlobalDiscountBtn').addEventListener('click', async () => {
                 let d = parseFloat(document.getElementById('globalDiscountInput').value);
-                if(isNaN(d)) return alert('Please enter a discount percentage');
-                products = products.map(p=>({...p, discount:d, discountCode:null})); 
+                if (isNaN(d) || d < 0 || d > 100) {
+                    alert('Please enter a valid discount percentage (0-100)');
+                    return;
+                }
                 
-                localStorage.setItem(STORAGE_KEY,JSON.stringify(products)); 
+                products = products.map(p => ({...p, discount: d, discountCode: null})); 
+                
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(products)); 
                 await syncToFirebase(products, 'products');
                 
                 renderProducts(); 
@@ -1965,30 +2251,35 @@
                 alert(`✅ Applied ${d}% discount to all products globally`);
             });
             
-            document.getElementById('enablePopupBtn').addEventListener('click', async()=>{
+            document.getElementById('enablePopupBtn').addEventListener('click', async () => {
                 let msg = document.getElementById('popupMessageInput').value.trim() || '🔥 FLASH SALE';
-                let popupData = {message:msg, enabled:true};
-                localStorage.setItem(POPUP_KEY,JSON.stringify(popupData)); 
+                let popupData = {message: msg, enabled: true};
+                localStorage.setItem(POPUP_KEY, JSON.stringify(popupData)); 
                 await syncToFirebase(popupData, 'popup');
                 loadPopup(); 
                 alert('✅ Popup enabled globally');
             });
             
-            document.getElementById('disablePopupBtn').addEventListener('click', async()=>{
-                let popupData = {message:'', enabled:false};
-                localStorage.setItem(POPUP_KEY,JSON.stringify(popupData)); 
+            document.getElementById('disablePopupBtn').addEventListener('click', async () => {
+                let popupData = {message: '', enabled: false};
+                localStorage.setItem(POPUP_KEY, JSON.stringify(popupData)); 
                 await syncToFirebase(popupData, 'popup');
                 loadPopup();
                 alert('Popup disabled globally');
             });
             
-            document.getElementById('generateCouponBtn').addEventListener('click', async()=>{
+            document.getElementById('generateCouponBtn').addEventListener('click', async () => {
                 let code = document.getElementById('couponCodeInput').value.trim().toUpperCase();
                 let disc = parseInt(document.getElementById('couponDiscInput').value);
-                if(!code || isNaN(disc)) return alert('Please enter valid code and discount');
-                coupons.push({code, discount:disc, active:true}); 
                 
-                localStorage.setItem(COUPONS_KEY,JSON.stringify(coupons)); 
+                if (!code || isNaN(disc) || disc < 1 || disc > 100) {
+                    alert('Please enter valid code and discount (1-100)');
+                    return;
+                }
+                
+                coupons.push({code, discount: disc, active: true}); 
+                
+                localStorage.setItem(COUPONS_KEY, JSON.stringify(coupons)); 
                 await syncToFirebase(coupons, 'coupons');
                 
                 renderAdminCoupons();
@@ -1997,9 +2288,11 @@
                 alert(`✅ Coupon ${code} generated with ${disc}% discount globally`);
             });
             
-            window.toggleAdminCoupon = async(index) => { 
+            window.toggleAdminCoupon = async (index) => { 
+                if (!coupons[index]) return;
+                
                 coupons[index].active = !coupons[index].active; 
-                localStorage.setItem(COUPONS_KEY,JSON.stringify(coupons)); 
+                localStorage.setItem(COUPONS_KEY, JSON.stringify(coupons)); 
                 await syncToFirebase(coupons, 'coupons');
                 renderAdminCoupons(); 
             };
@@ -2007,16 +2300,20 @@
             function renderAdminCoupons() {
                 let cont = document.getElementById('adminCouponList'); 
                 cont.innerHTML = '<h4 style="color:#f2c94c; margin-bottom:1rem;">Active Coupons</h4>';
-                if (coupons.length === 0) {
+                
+                if (!coupons || coupons.length === 0) {
                     cont.innerHTML += '<p style="color:#666; padding:1rem; background:#3d3d3d; border-radius:20px;">No coupons generated yet.</p>';
                     return;
                 }
-                coupons.forEach((c,i)=>{ 
-                    let d=document.createElement('div'); 
+                
+                coupons.forEach((c, i) => { 
+                    if (!c) return;
+                    
+                    let d = document.createElement('div'); 
                     d.className = 'coupon-item';
-                    d.innerHTML=`
-                        <span class="coupon-code">${c.code}</span>
-                        <span style="font-weight:600;">${c.discount}% off</span>
+                    d.innerHTML = `
+                        <span class="coupon-code">${c.code || 'N/A'}</span>
+                        <span style="font-weight:600;">${c.discount || 0}% off</span>
                         <span class="coupon-status ${c.active ? 'status-active' : 'status-inactive'}">${c.active ? 'ACTIVE' : 'INACTIVE'}</span>
                         <button class="admin-btn" onclick="toggleAdminCoupon(${i})" style="min-width:80px;">
                             <i class="fas fa-toggle-${c.active ? 'on' : 'off'}"></i> ${c.active ? 'Disable' : 'Enable'}
@@ -2029,20 +2326,27 @@
             function renderAdminProducts() {
                 let cont = document.getElementById('adminProductsContainer'); 
                 cont.innerHTML = '';
-                if (products.length === 0) {
+                
+                if (!products || products.length === 0) {
                     cont.innerHTML = '<p style="color:#666; text-align:center; padding:2rem; background:#3d3d3d; border-radius:20px;">No products yet. Add your first product above!</p>';
                     return;
                 }
-                products.forEach(p=>{
-                    let d=document.createElement('div'); 
+                
+                products.forEach(p => {
+                    if (!p) return;
+                    
+                    let d = document.createElement('div'); 
                     d.className = 'admin-product-item';
-                    d.innerHTML=`
-                        <img src="${p.images?.[0]||'https://via.placeholder.com/80'}">
+                    
+                    const imageUrl = p.images && p.images.length > 0 ? p.images[0] : 'https://via.placeholder.com/80';
+                    
+                    d.innerHTML = `
+                        <img src="${imageUrl}" onerror="this.src='https://via.placeholder.com/80'">
                         <div class="admin-product-info">
-                            <strong>${p.name}</strong>
-                            <p style="color:#ccc;">${(p.description||'').substring(0,50)}${p.description?.length>50?'...':''}</p>
-                            <p style="color:#f2c94c; font-weight:700;">₹${p.price} ${p.discount?`<span style="color:#ff6b6b;">(-${p.discount}%)</span>`:''}</p>
-                            <small style="color:#666;">ID: ${p.id}</small>
+                            <strong>${p.name || 'Unnamed'}</strong>
+                            <p style="color:#ccc;">${(p.description || '').substring(0, 50)}${(p.description || '').length > 50 ? '...' : ''}</p>
+                            <p style="color:#f2c94c; font-weight:700;">₹${p.price || 0} ${p.discount ? `<span style="color:#ff6b6b;">(-${p.discount}%)</span>` : ''}</p>
+                            <small style="color:#666;">ID: ${p.id || 'N/A'}</small>
                         </div>
                         <div class="admin-product-actions">
                             <button class="admin-edit-btn" onclick="editProduct('${p.id}')"><i class="fas fa-edit"></i> EDIT</button>
@@ -2053,22 +2357,26 @@
                 });
             }
             
-            window.deleteAdminProduct = async(id) => { 
+            window.deleteAdminProduct = async (id) => { 
                 if (confirm('Are you sure you want to delete this product?')) {
-                    products = products.filter(p=>p.id!==id); 
-                    localStorage.setItem(STORAGE_KEY,JSON.stringify(products)); 
+                    products = products.filter(p => p.id !== id); 
+                    localStorage.setItem(STORAGE_KEY, JSON.stringify(products)); 
                     await syncToFirebase(products, 'products');
-                    if (editingProductId === id) resetAdminForm();
+                    
+                    if (editingProductId === id) {
+                        resetAdminForm();
+                    }
+                    
                     renderProducts(); 
                     renderAdminProducts(); 
                     alert('✅ Product deleted globally');
                 }
             };
             
-            document.getElementById('clearAllProductsBtn').addEventListener('click', async()=>{ 
-                if(confirm('⚠️ Delete ALL products? This cannot be undone.')) { 
+            document.getElementById('clearAllProductsBtn').addEventListener('click', async () => { 
+                if (confirm('⚠️ Delete ALL products? This cannot be undone.')) { 
                     products = []; 
-                    localStorage.setItem(STORAGE_KEY,JSON.stringify(products)); 
+                    localStorage.setItem(STORAGE_KEY, JSON.stringify(products)); 
                     await syncToFirebase(products, 'products');
                     resetAdminForm();
                     renderProducts(); 
@@ -2078,8 +2386,10 @@
             });
 
             // Initialize everything
-            initializeData();
-            setupFirebaseListeners();
+            setTimeout(() => {
+                initializeData();
+                setupFirebaseListeners();
+            }, 1000); // Small delay to ensure Firebase is loaded
 
             // Expose functions globally
             window.toggleAdminCoupon = toggleAdminCoupon;
