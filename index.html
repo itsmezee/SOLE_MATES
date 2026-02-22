@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0">
-    <title>SOLE MATES · LIVE SYNC</title>
+    <title>SOLE MATES</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
     <!-- Firebase SDKs -->
@@ -145,6 +145,37 @@
             border: 2px solid #f2c94c;
             box-shadow: 0 4px 0 #f2c94c;
         }
+        
+        /* Search Bar Styles */
+        .search-container {
+            margin: 1.5rem 0;
+            display: flex;
+            justify-content: center;
+        }
+        .search-box {
+            width: 100%;
+            max-width: 500px;
+            position: relative;
+        }
+        .search-box input {
+            width: 100%;
+            padding: 1rem 1.5rem;
+            border: 3px solid #f2c94c;
+            border-radius: 50px;
+            font-size: 1rem;
+            outline: none;
+            background: white;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        }
+        .search-box i {
+            position: absolute;
+            right: 20px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #f2c94c;
+            font-size: 1.2rem;
+        }
+        
         .product-grid-wrapper {
             position: relative;
             padding: 1rem 0;
@@ -222,6 +253,18 @@
             font-size: 0.7rem;
             z-index: 2;
         }
+        .size-badge {
+            position: absolute;
+            bottom: 8px;
+            left: 8px;
+            background: #333;
+            color: white;
+            padding: 3px 8px;
+            border-radius: 20px;
+            font-weight: 600;
+            font-size: 0.7rem;
+            z-index: 2;
+        }
         .product-image {
             width: 120px;
             height: 120px;
@@ -259,27 +302,43 @@
             font-size: 0.9rem;
             margin-right: 5px;
         }
-        .add-btn {
-            background: #f2c94c;
+        .product-actions {
+            display: flex;
+            gap: 0.5rem;
+            width: 100%;
+            margin-top: 0.5rem;
+        }
+        .add-btn, .buy-btn {
+            flex: 1;
             border: none;
             border-radius: 40px;
-            padding: 0.6rem 1rem;
+            padding: 0.6rem 0.5rem;
             font-weight: 600;
-            font-size: 0.9rem;
+            font-size: 0.8rem;
             display: flex;
             align-items: center;
-            gap: 5px;
-            margin-top: 0.5rem;
-            cursor: pointer;
-            border: 1px solid #dbaa2c;
-            transition: 0.15s;
-            width: 100%;
             justify-content: center;
+            gap: 3px;
+            cursor: pointer;
+            transition: 0.15s;
             -webkit-tap-highlight-color: transparent;
+        }
+        .add-btn {
+            background: #f2c94c;
+            border: 1px solid #dbaa2c;
+        }
+        .buy-btn {
+            background: #25D366;
+            color: white;
+            border: 1px solid #128C7E;
         }
         .add-btn:active { 
             transform: scale(0.95); 
             background: #e5bb3c;
+        }
+        .buy-btn:active { 
+            transform: scale(0.95); 
+            background: #20b859;
         }
         .modal {
             display: none;
@@ -448,6 +507,83 @@
             color: #444;
             line-height: 1.6;
         }
+        .size-selection {
+            background: #f5f5f5;
+            border-radius: 25px;
+            padding: 1rem;
+        }
+        .size-title {
+            font-weight: 700;
+            margin-bottom: 1rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .size-buttons {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.8rem;
+        }
+        .size-btn {
+            width: 50px;
+            height: 50px;
+            border-radius: 15px;
+            border: 2px solid #ddd;
+            background: white;
+            font-weight: 700;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .size-btn:hover, .size-btn.selected {
+            background: #f2c94c;
+            border-color: #dbaa2c;
+            transform: scale(1.05);
+        }
+        .size-btn.disabled {
+            opacity: 0.3;
+            cursor: not-allowed;
+            pointer-events: none;
+        }
+        .quantity-selector {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            background: #f5f5f5;
+            border-radius: 40px;
+            padding: 0.5rem 1rem;
+            justify-content: space-between;
+        }
+        .quantity-controls {
+            display: flex;
+            align-items: center;
+            gap: 0.8rem;
+        }
+        .quantity-btn {
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            border: none;
+            background: #f2c94c;
+            font-weight: 700;
+            font-size: 1.2rem;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .quantity-btn:active {
+            transform: scale(0.9);
+        }
+        .quantity-display {
+            font-weight: 700;
+            font-size: 1.1rem;
+            min-width: 30px;
+            text-align: center;
+        }
         .coupon-section {
             background: #f0f7f0;
             border-radius: 25px;
@@ -504,6 +640,34 @@
         .delivery-option span {
             flex: 1;
             font-weight: 500;
+        }
+        .address-section {
+            background: #f5f5f5;
+            border-radius: 25px;
+            padding: 1rem;
+        }
+        .address-input {
+            width: 100%;
+            padding: 0.8rem;
+            border: 2px solid #ddd;
+            border-radius: 30px;
+            margin: 0.5rem 0;
+            outline: none;
+        }
+        .detect-location-btn {
+            background: #4285F4;
+            color: white;
+            border: none;
+            border-radius: 40px;
+            padding: 0.8rem;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            cursor: pointer;
+            width: 100%;
+            margin: 0.5rem 0;
         }
         .delivery-fee-note {
             font-size: 0.85rem;
@@ -608,20 +772,32 @@
             cursor: pointer;
             width: 100%;
         }
-        .location-share {
-            background: #25D366;
-            color: white;
+        .modal-actions {
+            display: flex;
+            gap: 1rem;
+            margin-top: 0.5rem;
+        }
+        .modal-add-btn, .modal-buy-btn {
+            flex: 1;
             border: none;
             border-radius: 50px;
-            padding: 0.8rem;
+            padding: 1rem;
             font-weight: 700;
+            font-size: 1rem;
             display: flex;
             align-items: center;
             justify-content: center;
             gap: 8px;
             cursor: pointer;
-            margin-top: 0.5rem;
-            font-size: 0.95rem;
+            transition: 0.2s;
+        }
+        .modal-add-btn {
+            background: #f2c94c;
+            color: black;
+        }
+        .modal-buy-btn {
+            background: #25D366;
+            color: white;
         }
         .cart-overlay {
             position: fixed;
@@ -681,6 +857,29 @@
         .cart-item-info { 
             flex: 1; 
             font-size: 0.9rem;
+        }
+        .cart-item-size {
+            font-size: 0.8rem;
+            color: #666;
+            margin-top: 2px;
+        }
+        .cart-item-quantity {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            margin-top: 5px;
+        }
+        .cart-qty-btn {
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            border: none;
+            background: #f2c94c;
+            font-weight: 700;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
         }
         .remove-item {
             background: none;
@@ -907,6 +1106,35 @@
             color: white;
             font-size: 1rem;
         }
+        .size-selector-grid {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.8rem;
+            margin: 1rem 0;
+        }
+        .size-checkbox {
+            background: #3d3d3d;
+            border: 2px solid #5a5a5a;
+            border-radius: 15px;
+            padding: 0.5rem 1rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+        .size-checkbox:hover {
+            border-color: #f2c94c;
+        }
+        .size-checkbox input {
+            width: 18px;
+            height: 18px;
+            cursor: pointer;
+            accent-color: #f2c94c;
+        }
+        .size-checkbox span {
+            font-weight: 600;
+        }
         .admin-btn, .admin-btn-danger, .admin-btn-success, .admin-btn-warning {
             border: none;
             border-radius: 30px;
@@ -1016,6 +1244,11 @@
             font-size: 1.2rem;
             display: block;
             margin-bottom: 0.3rem;
+        }
+        .admin-product-info .size-info {
+            color: #aaa;
+            font-size: 0.9rem;
+            margin-top: 0.3rem;
         }
         .admin-product-actions {
             display: flex;
@@ -1178,6 +1411,14 @@
             <i class="fas fa-truck"></i> FREE DELIVERY ON ORDERS ABOVE ₹499 | Pickup Available
         </div>
 
+        <!-- Search Bar -->
+        <div class="search-container">
+            <div class="search-box">
+                <input type="text" id="searchInput" placeholder="Search shoes by name..." onkeyup="searchProducts()">
+                <i class="fas fa-search"></i>
+            </div>
+        </div>
+
         <h2 style="margin-bottom: 0.8rem;">👟 new arrivals</h2>
         
         <div class="product-grid-wrapper">
@@ -1190,9 +1431,8 @@
         </div>
     </main>
 
-    <!-- PRODUCT DETAIL MODAL (KEEP EXACTLY AS BEFORE) -->
+    <!-- PRODUCT DETAIL MODAL (UPDATED WITH SIZE SELECTION, QUANTITY CONTROLS, ADDRESS) -->
     <div class="modal" id="productModal">
-        <!-- Your existing modal content - unchanged -->
         <div class="modal-content">
             <span class="close-modal" id="closeModal">&times;</span>
             <div class="modal-grid">
@@ -1202,7 +1442,17 @@
                         <div class="zoom-hint"><i class="fas fa-search-plus"></i> Click to zoom</div>
                     </div>
                     <div class="thumbnail-grid" id="thumbnailGrid"></div>
+                    
+                    <!-- Size Selection Below Images -->
+                    <div class="size-selection">
+                        <div class="size-title">
+                            <span>Select Size (Available: <span id="availableSizesCount">0</span>)</span>
+                            <span id="selectedSizeDisplay" style="color:#f2c94c;">Not selected</span>
+                        </div>
+                        <div class="size-buttons" id="sizeButtons"></div>
+                    </div>
                 </div>
+                
                 <div class="modal-info">
                     <h2 class="modal-title" id="modalTitle"></h2>
                     <div class="rating-section">
@@ -1214,6 +1464,17 @@
                         <span class="original-price" id="modalOriginalPrice"></span>
                     </div>
                     <p class="modal-description" id="modalDescription"></p>
+                    
+                    <!-- Quantity Selector -->
+                    <div class="quantity-selector">
+                        <span>Quantity:</span>
+                        <div class="quantity-controls">
+                            <button class="quantity-btn" onclick="changeModalQuantity(-1)">−</button>
+                            <span class="quantity-display" id="modalQuantity">1</span>
+                            <button class="quantity-btn" onclick="changeModalQuantity(1)">+</button>
+                        </div>
+                    </div>
+                    
                     <div class="coupon-section">
                         <strong>Have a coupon?</strong>
                         <div class="coupon-input">
@@ -1222,14 +1483,25 @@
                         </div>
                         <div id="couponMessage" style="font-size:0.8rem;"></div>
                     </div>
+                    
                     <div class="delivery-options">
                         <strong>Delivery Method:</strong>
                         <label class="delivery-option">
-                            <input type="checkbox" id="pickupCheckbox">
+                            <input type="checkbox" id="pickupCheckbox" onchange="updateModalDelivery()">
                             <span>✓ I will pick up from store (Free)</span>
                         </label>
-                        <div class="delivery-fee-note" id="deliveryFeeNote">Standard delivery: ₹49 under ₹499, free above</div>
                     </div>
+                    
+                    <!-- Address Section with Location Detection -->
+                    <div class="address-section">
+                        <strong>Delivery Address:</strong>
+                        <textarea id="deliveryAddress" class="address-input" rows="2" placeholder="Enter your full address..."></textarea>
+                        <button class="detect-location-btn" onclick="detectLocation('deliveryAddress')">
+                            <i class="fas fa-map-marker-alt"></i> Detect My Location
+                        </button>
+                        <div class="delivery-fee-note" id="modalDeliveryFeeNote">Standard delivery: ₹49 under ₹499, free above</div>
+                    </div>
+                    
                     <div class="comments-section">
                         <div class="comments-header">
                             <h3>Customer Reviews</h3>
@@ -1245,25 +1517,39 @@
                             <div class="comment-actions"><button onclick="addComment()"><i class="fas fa-paper-plane"></i> Post Review</button></div>
                         </div>
                     </div>
-                    <button class="location-share" id="shareLocationBtn"><i class="fas fa-map-marker-alt"></i> Share Location for Delivery</button>
-                    <button class="add-btn" id="modalAddToCart"><i class="fas fa-cart-plus"></i> Add to Cart</button>
+                    
+                    <div class="modal-actions">
+                        <button class="modal-add-btn" id="modalAddToCart"><i class="fas fa-cart-plus"></i> Add to Cart</button>
+                        <button class="modal-buy-btn" id="modalBuyNow"><i class="fab fa-whatsapp"></i> Buy Now</button>
+                    </div>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- CART SIDEBAR (KEEP EXACTLY AS BEFORE) -->
+    <!-- CART SIDEBAR (UPDATED WITH QUANTITY CONTROLS AND SIZE DISPLAY) -->
     <div class="cart-overlay" id="cartOverlay">
         <div class="cart-panel">
             <div class="cart-header"><h2>your cart</h2><span class="close-cart" id="closeCartBtn">&times;</span></div>
             <div class="cart-items" id="cartItemsContainer"></div>
+            
+            <!-- Address Section in Cart -->
+            <div class="address-section" style="margin:1rem 0;">
+                <strong>Delivery Address:</strong>
+                <textarea id="cartAddress" class="address-input" rows="2" placeholder="Enter your full address..."></textarea>
+                <button class="detect-location-btn" onclick="detectLocation('cartAddress')">
+                    <i class="fas fa-map-marker-alt"></i> Detect My Location
+                </button>
+            </div>
+            
             <div class="delivery-options" style="margin:1rem 0;">
                 <label class="delivery-option">
-                    <input type="checkbox" id="cartPickupCheckbox">
+                    <input type="checkbox" id="cartPickupCheckbox" onchange="updateCart()">
                     <span>✓ I will pick up from store (Free)</span>
                 </label>
                 <div class="delivery-fee-note" id="cartDeliveryFeeNote">Standard delivery: ₹49 under ₹499, free above</div>
             </div>
+            
             <div class="cart-footer">
                 <div id="freeDeliveryMsg" class="free-ship-note"></div>
                 <div class="total-section">
@@ -1277,7 +1563,7 @@
         </div>
     </div>
 
-    <!-- FOOTER with admin corner (KEEP EXACTLY AS BEFORE) -->
+    <!-- FOOTER with admin corner -->
     <footer class="footer">
         <div class="footer-content">
             <div class="footer-section"><h3>SOLE MATES</h3><p>Premium footwear for every step.</p><div class="social-links"><a href="#"><i class="fab fa-facebook-f"></i></a><a href="#"><i class="fab fa-instagram"></i></a><a href="#"><i class="fab fa-twitter"></i></a><a href="#"><i class="fab fa-whatsapp"></i></a></div></div>
@@ -1292,9 +1578,8 @@
         </div>
     </footer>
 
-    <!-- ADMIN PANEL (KEEP EXACTLY AS BEFORE) -->
+    <!-- ADMIN PANEL (UPDATED WITH SIZE SELECTOR) -->
     <div id="adminPanel" class="admin-panel">
-        <!-- Your existing admin panel content - unchanged -->
         <div class="admin-header">
             <div style="display: flex; align-items: center; gap: 1.5rem; flex-wrap: wrap;">
                 <h2 style="color:#f2c94c; font-size: 1.8rem;"><i class="fas fa-crown"></i> Admin Dashboard</h2>
@@ -1321,6 +1606,18 @@
                 <div class="admin-form-group">
                     <label>Price (₹)</label>
                     <input type="number" id="adminPrice" placeholder="599">
+                </div>
+                
+                <!-- Size Selection for Admin (6-10) -->
+                <div class="admin-form-group">
+                    <label>Available Sizes (6-10) - Select multiple</label>
+                    <div class="size-selector-grid" id="adminSizeSelector">
+                        <label class="size-checkbox"><input type="checkbox" value="6"> <span>6</span></label>
+                        <label class="size-checkbox"><input type="checkbox" value="7"> <span>7</span></label>
+                        <label class="size-checkbox"><input type="checkbox" value="8"> <span>8</span></label>
+                        <label class="size-checkbox"><input type="checkbox" value="9"> <span>9</span></label>
+                        <label class="size-checkbox"><input type="checkbox" value="10"> <span>10</span></label>
+                    </div>
                 </div>
                 
                 <!-- Image Link Input -->
@@ -1388,11 +1685,10 @@
 
     <script>
         // ========== FIREBASE CONFIGURATION ==========
-        // Your Firebase configuration - CORRECTED
         const firebaseConfig = {
             apiKey: "AIzaSyAFriEYS22Pmw-Za9IrJ9eC6cOqU5FVBKs",
             authDomain: "solemate-289f0.firebaseapp.com",
-            databaseURL: "https://solemate-289f0-default-rtdb.firebaseio.com", // FIXED: Added databaseURL
+            databaseURL: "https://solemate-289f0-default-rtdb.firebaseio.com",
             projectId: "solemate-289f0",
             storageBucket: "solemate-289f0.firebasestorage.app",
             messagingSenderId: "548256172024",
@@ -1403,7 +1699,6 @@
         // ========== INITIALIZE FIREBASE ==========
         let database;
         try {
-            // Initialize Firebase
             firebase.initializeApp(firebaseConfig);
             database = firebase.database();
             console.log("✅ Firebase connected successfully!");
@@ -1426,6 +1721,8 @@
         let zoomed = false;
         let selectedRating = 0;
         let appliedCoupon = null;
+        let currentModalQuantity = 1;
+        let selectedSize = null;
         
         const WHATSAPP_NUMBER = '919030175006';
         const DELIVERY_FEE = 49;
@@ -1435,7 +1732,6 @@
         function loadFromFirebase() {
             if (!database) {
                 console.log("⚠️ Using localStorage fallback");
-                // Fallback to localStorage if Firebase fails
                 products = JSON.parse(localStorage.getItem('solemates_products')) || [];
                 comments = JSON.parse(localStorage.getItem('solemates_comments')) || {};
                 ratings = JSON.parse(localStorage.getItem('solemates_ratings')) || {};
@@ -1444,47 +1740,39 @@
                 return;
             }
 
-            // Show loading state
             document.getElementById('productGrid').innerHTML = '<div class="loading-spinner"><i class="fas fa-spinner fa-spin"></i> Loading products...</div>';
 
-            // Listen for product changes in real-time
             firebase.database().ref('products').on('value', (snapshot) => {
                 const data = snapshot.val();
-                products = data ? Object.values(data) : []; // Convert object to array if needed
+                products = data ? Object.values(data) : [];
                 console.log("📦 Products loaded:", products.length);
                 localStorage.setItem('solemates_products', JSON.stringify(products));
                 renderProducts();
                 
-                // Update admin view if open
                 if (document.getElementById('adminPanel').style.display === 'block') {
                     renderAdminProducts();
                 }
             }, (error) => {
                 console.error("Firebase read error:", error);
-                // Fallback to localStorage
                 products = JSON.parse(localStorage.getItem('solemates_products')) || [];
                 renderProducts();
             });
 
-            // Listen for comments
             firebase.database().ref('comments').on('value', (snapshot) => {
                 comments = snapshot.val() || {};
                 localStorage.setItem('solemates_comments', JSON.stringify(comments));
             });
 
-            // Listen for ratings
             firebase.database().ref('ratings').on('value', (snapshot) => {
                 ratings = snapshot.val() || {};
                 localStorage.setItem('solemates_ratings', JSON.stringify(ratings));
             });
 
-            // Listen for coupons
             firebase.database().ref('coupons').on('value', (snapshot) => {
                 coupons = snapshot.val() || [];
                 localStorage.setItem('solemates_coupons', JSON.stringify(coupons));
             });
 
-            // Listen for popup
             firebase.database().ref('popup').on('value', (snapshot) => {
                 const popupData = snapshot.val();
                 if (popupData) {
@@ -1496,19 +1784,15 @@
 
         function saveToFirebase(path, data) {
             if (!database) {
-                // Fallback to localStorage
                 localStorage.setItem(`solemates_${path}`, JSON.stringify(data));
                 console.log("💾 Saved to localStorage:", path);
                 return;
             }
             
-            // Show saving indicator
             const syncStatus = document.getElementById('syncStatus');
-            const originalText = syncStatus.textContent;
             syncStatus.textContent = 'SAVING...';
             syncStatus.style.background = '#ffc107';
             
-            // Save to Firebase
             firebase.database().ref(path).set(data)
                 .then(() => {
                     console.log("✅ Saved to Firebase:", path);
@@ -1519,16 +1803,20 @@
                     console.error("❌ Firebase save error:", error);
                     syncStatus.textContent = 'ERROR';
                     syncStatus.style.background = '#dc3545';
-                    // Still save to localStorage as backup
                     localStorage.setItem(`solemates_${path}`, JSON.stringify(data));
                     
-                    // Reset after 2 seconds
                     setTimeout(() => {
                         syncStatus.textContent = 'LIVE';
                         syncStatus.style.background = '#28a745';
                     }, 2000);
                 });
         }
+
+        // ========== SEARCH FUNCTION ==========
+        window.searchProducts = function() {
+            const searchTerm = document.getElementById('searchInput').value.toLowerCase().trim();
+            renderProducts(searchTerm);
+        };
 
         // ========== HELPER FUNCTIONS ==========
         function isNew(p) { 
@@ -1537,25 +1825,39 @@
         }
         
         function getDiscountedPrice(p) { 
-            return p.discount ? Math.round(p.price * (1 - p.discount/100)) : p.price; 
+            let price = p.discount ? Math.round(p.price * (1 - p.discount/100)) : p.price;
+            if (appliedCoupon) {
+                price = Math.round(price * (1 - appliedCoupon.discount/100));
+            }
+            return price;
         }
 
         // ========== RENDER PRODUCT GRID ==========
-        function renderProducts() {
+        function renderProducts(searchTerm = '') {
             const productGrid = document.getElementById('productGrid');
             
-            if (!products || products.length === 0) {
-                productGrid.innerHTML = '<div class="empty-state"><i class="fas fa-shoe-prints"></i><h3>No Products Yet</h3><p>Admin can add products from the admin panel</p></div>';
+            let filteredProducts = products;
+            if (searchTerm) {
+                filteredProducts = products.filter(p => 
+                    p.name && p.name.toLowerCase().includes(searchTerm)
+                );
+            }
+            
+            if (!filteredProducts || filteredProducts.length === 0) {
+                productGrid.innerHTML = '<div class="empty-state"><i class="fas fa-shoe-prints"></i><h3>No Products Found</h3><p>' + 
+                    (searchTerm ? 'Try a different search term' : 'Admin can add products from the admin panel') + 
+                    '</p></div>';
                 return;
             }
             
-            productGrid.innerHTML = ''; // Clear loading spinner
+            productGrid.innerHTML = '';
             
-            products.forEach(prod => {
+            filteredProducts.forEach(prod => {
                 if (!prod || !prod.id) return;
                 
                 const dPrice = getDiscountedPrice(prod);
                 const hasDiscount = prod.discount > 0;
+                const sizes = prod.sizes || [];
                 
                 const card = document.createElement('div');
                 card.className = 'product-card';
@@ -1564,6 +1866,7 @@
                 let badges = '';
                 if (isNew(prod)) badges += '<span class="new-badge">🔥 NEW</span>';
                 if (hasDiscount) badges += `<span class="discount-badge">-${prod.discount}%</span>`;
+                if (sizes.length > 0) badges += `<span class="size-badge">📏 ${sizes.join(', ')}</span>`;
                 
                 const imageUrl = prod.images && prod.images.length > 0 ? prod.images[0] : 'https://via.placeholder.com/200?text=No+Image';
                 
@@ -1576,36 +1879,93 @@
                         ${hasDiscount ? `<span class="original-price">₹${prod.price}</span>` : ''} 
                         ₹${dPrice}
                     </div>
-                    <button class="add-btn" onclick="event.stopPropagation(); addToCart('${prod.id}')">
-                        <i class="fas fa-cart-plus"></i> add
-                    </button>
+                    <div class="product-actions">
+                        <button class="add-btn" onclick="event.stopPropagation(); addToCart('${prod.id}')">
+                            <i class="fas fa-cart-plus"></i> add
+                        </button>
+                        <button class="buy-btn" onclick="event.stopPropagation(); buyNow('${prod.id}')">
+                            <i class="fab fa-whatsapp"></i> buy
+                        </button>
+                    </div>
                 `;
                 productGrid.appendChild(card);
             });
         }
 
-        // ========== CART FUNCTIONS ==========
-        window.addToCart = function(productId) {
+        // ========== BUY NOW FUNCTION ==========
+        window.buyNow = function(productId) {
             const product = products.find(p => p.id === productId);
             if (!product) return;
             
-            // Calculate price with discounts
-            let price = getDiscountedPrice(product);
-            if (appliedCoupon) {
-                price = Math.round(price * (1 - appliedCoupon.discount/100));
+            // Open modal first
+            openProductModal(productId);
+            
+            // Then trigger buy after a short delay
+            setTimeout(() => {
+                document.getElementById('modalBuyNow').click();
+            }, 500);
+        };
+
+        // ========== LOCATION DETECTION ==========
+        window.detectLocation = function(textareaId) {
+            if (!navigator.geolocation) { 
+                alert('Geolocation not supported'); 
+                return; 
             }
             
-            const existing = cart.find(i => i.id === productId);
+            navigator.geolocation.getCurrentPosition(
+                (pos) => {
+                    const lat = pos.coords.latitude;
+                    const lng = pos.coords.longitude;
+                    
+                    // Use reverse geocoding to get address
+                    fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`)
+                        .then(response => response.json())
+                        .then(data => {
+                            const address = data.display_name || `${lat}, ${lng}`;
+                            document.getElementById(textareaId).value = address;
+                        })
+                        .catch(() => {
+                            // Fallback to coordinates
+                            document.getElementById(textareaId).value = `Location: ${lat}, ${lng}`;
+                        });
+                },
+                (error) => {
+                    alert('Could not detect location. Please enter manually.');
+                    console.error('Geolocation error:', error);
+                }
+            );
+        };
+
+        // ========== CART FUNCTIONS ==========
+        window.addToCart = function(productId, size = null, quantity = 1) {
+            const product = products.find(p => p.id === productId);
+            if (!product) return;
+            
+            // If no size provided and product has sizes, check if size is selected
+            if (!size && product.sizes && product.sizes.length > 0) {
+                alert('Please select a size first');
+                return;
+            }
+            
+            // Calculate price with all discounts
+            let price = getDiscountedPrice(product);
+            
+            // Create unique ID with size
+            const cartItemId = size ? `${product.id}-${size}` : product.id;
+            
+            const existing = cart.find(i => i.id === cartItemId);
             if (existing) {
-                existing.quantity++;
+                existing.quantity += quantity;
             } else {
-                // Store only necessary data in cart
                 cart.push({
-                    id: product.id,
+                    id: cartItemId,
+                    productId: product.id,
                     name: product.name,
                     price: price,
                     originalPrice: product.price,
-                    quantity: 1,
+                    size: size,
+                    quantity: quantity,
                     images: product.images
                 });
             }
@@ -1622,6 +1982,17 @@
         window.removeFromCart = function(id) { 
             cart = cart.filter(i => i.id !== id); 
             updateCart(); 
+        };
+        
+        window.updateCartQuantity = function(id, change) {
+            const item = cart.find(i => i.id === id);
+            if (item) {
+                item.quantity += change;
+                if (item.quantity <= 0) {
+                    cart = cart.filter(i => i.id !== id);
+                }
+                updateCart();
+            }
         };
 
         function updateCart() {
@@ -1645,7 +2016,12 @@
                         <img src="${imageUrl}" class="cart-item-image" onerror="this.src='https://via.placeholder.com/60'">
                         <div class="cart-item-info">
                             <strong>${i.name || 'Shoe'}</strong>
-                            <div>₹${i.price || 0} x ${i.quantity || 0}</div>
+                            ${i.size ? `<div class="cart-item-size">Size: ${i.size}</div>` : ''}
+                            <div class="cart-item-quantity">
+                                <button class="cart-qty-btn" onclick="updateCartQuantity('${i.id}', -1)">−</button>
+                                <span>${i.quantity || 0}</span>
+                                <button class="cart-qty-btn" onclick="updateCartQuantity('${i.id}', 1)">+</button>
+                            </div>
                         </div>
                         <div>₹${(i.price || 0) * (i.quantity || 0)}</div>
                         <button class="remove-item" onclick="removeFromCart('${i.id}')">
@@ -1657,9 +2033,8 @@
             }
             
             const subtotal = cart.reduce((s, i) => s + ((i.price || 0) * (i.quantity || 0)), 0);
-            const pickupCheckbox = document.getElementById('pickupCheckbox');
             const cartPickupCheckbox = document.getElementById('cartPickupCheckbox');
-            const isPickup = (pickupCheckbox && pickupCheckbox.checked) || (cartPickupCheckbox && cartPickupCheckbox.checked);
+            const isPickup = cartPickupCheckbox && cartPickupCheckbox.checked;
             
             let delivery = isPickup ? 0 : (subtotal < 499 ? DELIVERY_FEE : 0);
             
@@ -1677,12 +2052,13 @@
             if (!p) return;
             
             currentProduct = p; 
+            currentModalQuantity = 1;
+            selectedSize = null;
+            document.getElementById('modalQuantity').textContent = '1';
+            document.getElementById('selectedSizeDisplay').textContent = 'Not selected';
             
             // Calculate price with all discounts
             let dPrice = getDiscountedPrice(p); 
-            if (appliedCoupon) {
-                dPrice = Math.round(dPrice * (1 - appliedCoupon.discount/100));
-            }
             
             document.getElementById('modalTitle').textContent = p.name || 'Product'; 
             document.getElementById('modalDescription').textContent = p.description || 'No description'; 
@@ -1697,6 +2073,7 @@
             
             document.getElementById('modalMainImage').src = (p.images && p.images.length > 0) ? p.images[0] : ''; 
             
+            // Render thumbnails
             const thumbnailGrid = document.getElementById('thumbnailGrid');
             thumbnailGrid.innerHTML = '';
             
@@ -1714,11 +2091,67 @@
                 });
             }
             
+            // Render size buttons
+            renderSizeButtons();
+            
             loadRatings(id); 
             loadComments(id); 
             document.getElementById('productModal').style.display = 'block'; 
             document.body.style.overflow = 'hidden';
         };
+        
+        function renderSizeButtons() {
+            const sizeButtons = document.getElementById('sizeButtons');
+            const availableSizes = currentProduct.sizes || [];
+            document.getElementById('availableSizesCount').textContent = availableSizes.length;
+            
+            sizeButtons.innerHTML = '';
+            
+            if (availableSizes.length === 0) {
+                sizeButtons.innerHTML = '<p style="color:#666;">No sizes available</p>';
+                return;
+            }
+            
+            // Show sizes 6-10, but only enable those that are available
+            for (let size = 6; size <= 10; size++) {
+                const btn = document.createElement('button');
+                btn.className = 'size-btn';
+                btn.textContent = size;
+                
+                if (availableSizes.includes(size.toString())) {
+                    btn.onclick = () => selectSize(size.toString());
+                } else {
+                    btn.classList.add('disabled');
+                }
+                
+                sizeButtons.appendChild(btn);
+            }
+        }
+        
+        function selectSize(size) {
+            selectedSize = size;
+            document.getElementById('selectedSizeDisplay').textContent = `Size ${size}`;
+            
+            // Update all size buttons to show selected state
+            document.querySelectorAll('.size-btn').forEach(btn => {
+                btn.classList.remove('selected');
+                if (btn.textContent === size) {
+                    btn.classList.add('selected');
+                }
+            });
+        }
+        
+        window.changeModalQuantity = function(change) {
+            const newQty = currentModalQuantity + change;
+            if (newQty >= 1 && newQty <= 10) {
+                currentModalQuantity = newQty;
+                document.getElementById('modalQuantity').textContent = newQty;
+            }
+        };
+        
+        function updateModalDelivery() {
+            updateCart(); // Reuse cart update logic
+        }
         
         function loadRatings(id) { 
             let r = (ratings && ratings[id]) || []; 
@@ -1771,11 +2204,9 @@
             
             const productId = currentProduct.id;
             
-            // Initialize arrays if needed
             if (!comments[productId]) comments[productId] = [];
             if (!ratings[productId]) ratings[productId] = [];
             
-            // Add comment
             comments[productId].push({ 
                 author: name, 
                 text, 
@@ -1783,22 +2214,18 @@
                 date: new Date().toISOString() 
             });
             
-            // Add rating
             ratings[productId].push({ 
                 rating: selectedRating, 
                 date: new Date().toISOString() 
             });
             
-            // Save to Firebase
             saveToFirebase('comments', comments);
             saveToFirebase('ratings', ratings);
             
-            // Reset form
             document.getElementById('commentText').value = ''; 
             selectedRating = 0; 
             updateRatingInput(); 
             
-            // Reload comments
             loadComments(productId); 
             loadRatings(productId);
         };
@@ -1810,7 +2237,6 @@
             }); 
         }
         
-        // Rating input handlers
         document.querySelectorAll('#ratingInput span').forEach(s => {
             s.addEventListener('click', function() { 
                 selectedRating = parseInt(this.dataset.rating); 
@@ -1818,45 +2244,94 @@
             });
         });
 
-        // Image zoom
         document.getElementById('mainImageContainer').addEventListener('click', function() { 
             zoomed = !zoomed; 
             document.getElementById('modalMainImage').classList.toggle('zoomed', zoomed); 
         });
         
-        // Share location
-        document.getElementById('shareLocationBtn').addEventListener('click', ()=>{
-            if (!navigator.geolocation) { 
-                alert('Geolocation not supported'); 
-                return; 
+        // Modal add to cart
+        document.getElementById('modalAddToCart').addEventListener('click', () => { 
+            if (!currentProduct) return;
+            
+            // Check if size needs to be selected
+            if (currentProduct.sizes && currentProduct.sizes.length > 0 && !selectedSize) {
+                alert('Please select a size');
+                return;
             }
-            navigator.geolocation.getCurrentPosition(pos => {
-                let map = `https://www.google.com/maps?q=${pos.coords.latitude},${pos.coords.longitude}`;
-                let subtotal = cart.reduce((s, i) => s + ((i.price || 0) * (i.quantity || 0)), 0);
-                let isPickup = document.getElementById('pickupCheckbox').checked || document.getElementById('cartPickupCheckbox').checked;
-                let delivery = isPickup ? 0 : (subtotal < 499 ? DELIVERY_FEE : 0);
-                let total = subtotal + delivery;
-                
-                let orderItems = cart.map(i => `${i.name} - ${i.quantity} x ₹${i.price} = ₹${(i.price || 0) * (i.quantity || 0)}`).join('%0A');
-                let msg = `*New order from SOLE MATES*%0A%0A${orderItems}%0A%0A*Subtotal: ₹${subtotal}*%0A${isPickup ? 'Store Pickup' : delivery > 0 ? 'Delivery: ₹' + delivery : 'Delivery: Free'}%0A*Grand Total: ₹${total}*%0A%0A📍 ${map}`;
-                window.open(`https://wa.me/${WHATSAPP_NUMBER}?text=${msg}`, '_blank');
-            }, () => alert('Location access denied'));
+            
+            addToCart(currentProduct.id, selectedSize, currentModalQuantity); 
+            document.getElementById('productModal').style.display = 'none'; 
+            document.body.style.overflow = 'auto'; 
         });
         
-        // WhatsApp checkout
+        // Modal buy now
+        document.getElementById('modalBuyNow').addEventListener('click', () => {
+            if (!currentProduct) return;
+            
+            // Check if size needs to be selected
+            if (currentProduct.sizes && currentProduct.sizes.length > 0 && !selectedSize) {
+                alert('Please select a size');
+                return;
+            }
+            
+            const address = document.getElementById('deliveryAddress').value.trim();
+            if (!address) {
+                alert('Please enter your delivery address');
+                return;
+            }
+            
+            const price = getDiscountedPrice(currentProduct);
+            const total = price * currentModalQuantity;
+            const isPickup = document.getElementById('pickupCheckbox').checked;
+            const delivery = isPickup ? 0 : (total < 499 ? DELIVERY_FEE : 0);
+            const grandTotal = total + delivery;
+            
+            let msg = `*New Order from SOLE MATES*%0A%0A`;
+            msg += `*Product:* ${currentProduct.name}%0A`;
+            if (selectedSize) msg += `*Size:* ${selectedSize}%0A`;
+            msg += `*Quantity:* ${currentModalQuantity}%0A`;
+            msg += `*Price per piece:* ₹${price}%0A`;
+            msg += `*Subtotal:* ₹${total}%0A`;
+            msg += `*Delivery:* ${isPickup ? 'Store Pickup (Free)' : (delivery > 0 ? '₹' + delivery : 'Free')}%0A`;
+            msg += `*Grand Total:* ₹${grandTotal}%0A%0A`;
+            msg += `*Delivery Address:* ${address}%0A%0A`;
+            msg += `🛍️ Thank you for shopping with us!`;
+            
+            window.open(`https://wa.me/${WHATSAPP_NUMBER}?text=${msg}`, '_blank');
+        });
+        
+        // WhatsApp checkout from cart
         document.getElementById('whatsappCheckoutBtn').addEventListener('click', () => {
             if (!cart.length) { 
                 alert('Cart empty'); 
                 return; 
             }
             
-            let subtotal = cart.reduce((s, i) => s + ((i.price || 0) * (i.quantity || 0)), 0);
-            let isPickup = document.getElementById('pickupCheckbox').checked || document.getElementById('cartPickupCheckbox').checked;
-            let delivery = isPickup ? 0 : (subtotal < 499 ? DELIVERY_FEE : 0);
-            let total = subtotal + delivery;
+            const address = document.getElementById('cartAddress').value.trim();
+            if (!address) {
+                alert('Please enter your delivery address');
+                return;
+            }
             
-            let orderItems = cart.map(i => `${i.name} - ${i.quantity} x ₹${i.price} = ₹${(i.price || 0) * (i.quantity || 0)}`).join('%0A');
-            let msg = `*New order from SOLE MATES*%0A%0A${orderItems}%0A%0A*Subtotal: ₹${subtotal}*%0A${isPickup ? 'Store Pickup' : delivery > 0 ? 'Delivery: ₹' + delivery : 'Delivery: Free'}%0A*Grand Total: ₹${total}*%0A%0A🛍️ Thank you!`;
+            const subtotal = cart.reduce((s, i) => s + ((i.price || 0) * (i.quantity || 0)), 0);
+            const isPickup = document.getElementById('cartPickupCheckbox').checked;
+            const delivery = isPickup ? 0 : (subtotal < 499 ? DELIVERY_FEE : 0);
+            const total = subtotal + delivery;
+            
+            let orderItems = cart.map(i => {
+                let item = `${i.name} - ${i.quantity} x ₹${i.price} = ₹${(i.price || 0) * (i.quantity || 0)}`;
+                if (i.size) item += ` (Size: ${i.size})`;
+                return item;
+            }).join('%0A');
+            
+            let msg = `*New Order from SOLE MATES*%0A%0A`;
+            msg += `${orderItems}%0A%0A`;
+            msg += `*Subtotal: ₹${subtotal}*%0A`;
+            msg += `${isPickup ? 'Store Pickup' : delivery > 0 ? 'Delivery: ₹' + delivery : 'Delivery: Free'}%0A`;
+            msg += `*Grand Total: ₹${total}*%0A%0A`;
+            msg += `*Delivery Address:* ${address}%0A%0A`;
+            msg += `🛍️ Thank you for shopping with us!`;
+            
             window.open(`https://wa.me/${WHATSAPP_NUMBER}?text=${msg}`, '_blank');
         });
         
@@ -1869,7 +2344,6 @@
                 document.getElementById('couponMessage').innerHTML = `✅ Coupon applied! ${c.discount}% off`; 
                 if (currentProduct) {
                     let price = getDiscountedPrice(currentProduct);
-                    price = Math.round(price * (1 - c.discount/100));
                     document.getElementById('modalPrice').textContent = `₹${price}`; 
                 }
                 updateCart(); 
@@ -1934,15 +2408,6 @@
             } 
         });
         
-        document.getElementById('modalAddToCart').addEventListener('click', () => { 
-            if (currentProduct) { 
-                addToCart(currentProduct.id); 
-                document.getElementById('productModal').style.display = 'none'; 
-                document.body.style.overflow = 'auto'; 
-            } 
-        });
-        
-        // Delivery checkbox handlers
         document.getElementById('pickupCheckbox')?.addEventListener('change', updateCart);
         document.getElementById('cartPickupCheckbox')?.addEventListener('change', updateCart);
 
@@ -1978,6 +2443,10 @@
             document.getElementById('adminDesc').value = '';
             document.getElementById('adminPrice').value = '';
             adminImages = [];
+            
+            // Reset size checkboxes
+            document.querySelectorAll('#adminSizeSelector input').forEach(cb => cb.checked = false);
+            
             updateAdminImageGrid();
             document.getElementById('formTitle').innerHTML = '<i class="fas fa-plus-circle"></i> Add New Product';
             document.getElementById('adminPublishBtn').style.display = 'block';
@@ -1995,6 +2464,13 @@
             document.getElementById('adminDesc').value = product.description || '';
             document.getElementById('adminPrice').value = product.price || '';
             adminImages = product.images ? [...product.images] : [];
+            
+            // Set size checkboxes
+            const sizes = product.sizes || [];
+            document.querySelectorAll('#adminSizeSelector input').forEach(cb => {
+                cb.checked = sizes.includes(cb.value);
+            });
+            
             updateAdminImageGrid();
             document.getElementById('formTitle').innerHTML = '<i class="fas fa-edit"></i> Edit Product: ' + product.name;
             document.getElementById('adminPublishBtn').style.display = 'none';
@@ -2006,7 +2482,6 @@
 
         document.getElementById('adminCancelEdit').addEventListener('click', resetAdminForm);
 
-        // Add image from link
         document.getElementById('addImageLinkBtn').addEventListener('click', () => {
             let url = document.getElementById('imageLinkInput').value.trim();
             if (!url) { 
@@ -2052,6 +2527,12 @@
             const desc = document.getElementById('adminDesc').value.trim() || 'Stylish footwear';
             const price = parseFloat(document.getElementById('adminPrice').value);
             
+            // Get selected sizes
+            const sizes = [];
+            document.querySelectorAll('#adminSizeSelector input:checked').forEach(cb => {
+                sizes.push(cb.value);
+            });
+            
             if (isNaN(price) || price <= 0) { 
                 alert('Please enter a valid price'); 
                 return; 
@@ -2068,15 +2549,13 @@
                 description: desc, 
                 price, 
                 images: [...adminImages], 
+                sizes: sizes,
                 date: new Date().toISOString(), 
                 discount: null, 
                 discountCode: null 
             };
             
-            // Add to products array
             products.push(newProd); 
-            
-            // Save to Firebase as an array
             saveToFirebase('products', products);
             
             resetAdminForm();
@@ -2091,6 +2570,12 @@
             const desc = document.getElementById('adminDesc').value.trim() || 'Stylish footwear';
             const price = parseFloat(document.getElementById('adminPrice').value);
             
+            // Get selected sizes
+            const sizes = [];
+            document.querySelectorAll('#adminSizeSelector input:checked').forEach(cb => {
+                sizes.push(cb.value);
+            });
+            
             if (isNaN(price) || price <= 0) { 
                 alert('Please enter a valid price'); 
                 return; 
@@ -2100,7 +2585,6 @@
                 return; 
             }
 
-            // Update product in array
             products = products.map(p => {
                 if (p.id === editingProductId) {
                     return { 
@@ -2108,13 +2592,13 @@
                         name, 
                         description: desc, 
                         price, 
-                        images: adminImages 
+                        images: adminImages,
+                        sizes: sizes
                     };
                 }
                 return p;
             });
 
-            // Save to Firebase
             saveToFirebase('products', products);
             
             resetAdminForm();
@@ -2213,12 +2697,15 @@
                 let d = document.createElement('div'); 
                 d.className = 'admin-product-item';
                 const imageUrl = p.images && p.images.length > 0 ? p.images[0] : 'https://via.placeholder.com/80';
+                const sizes = p.sizes || [];
+                
                 d.innerHTML = `
                     <img src="${imageUrl}" onerror="this.src='https://via.placeholder.com/80'">
                     <div class="admin-product-info">
                         <strong>${p.name || 'Unnamed'}</strong>
                         <p style="color:#ccc;">${(p.description || '').substring(0, 50)}${(p.description || '').length > 50 ? '...' : ''}</p>
                         <p style="color:#f2c94c; font-weight:700;">₹${p.price || 0} ${p.discount ? `<span style="color:#ff6b6b;">(-${p.discount}%)</span>` : ''}</p>
+                        ${sizes.length > 0 ? `<div class="size-info">Sizes: ${sizes.join(', ')}</div>` : ''}
                         <small style="color:#666;">ID: ${p.id || 'N/A'}</small>
                     </div>
                     <div class="admin-product-actions">
@@ -2249,7 +2736,6 @@
         });
 
         // ========== INITIALIZE ==========
-        // Start loading data
         loadFromFirebase();
         updateCart();
         loadPopup();
@@ -2257,7 +2743,6 @@
         // Add some sample products if none exist (for testing)
         setTimeout(() => {
             if (products.length === 0 && !database) {
-                // Only add samples if in offline mode and no products
                 const sampleProducts = [
                     {
                         id: 'SM-SAMPLE1',
@@ -2265,6 +2750,7 @@
                         description: 'Premium comfort running shoes',
                         price: 7999,
                         images: ['https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=400'],
+                        sizes: ['7', '8', '9', '10'],
                         date: new Date().toISOString(),
                         discount: 10
                     },
@@ -2274,6 +2760,7 @@
                         description: 'Energy-returning sneakers',
                         price: 12999,
                         images: ['https://images.unsplash.com/photo-1608231387042-66d177aa0f9b?w=400'],
+                        sizes: ['6', '7', '8', '9'],
                         date: new Date().toISOString(),
                         discount: null
                     }
