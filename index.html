@@ -653,6 +653,8 @@
             border-radius: 30px;
             margin: 0.5rem 0;
             outline: none;
+            font-family: 'Inter', sans-serif;
+            resize: vertical;
         }
         .detect-location-btn {
             background: #4285F4;
@@ -668,6 +670,19 @@
             cursor: pointer;
             width: 100%;
             margin: 0.5rem 0;
+            transition: 0.2s;
+        }
+        .detect-location-btn:hover {
+            background: #3367d6;
+        }
+        .detect-location-btn:active {
+            transform: scale(0.98);
+        }
+        .location-status {
+            font-size: 0.8rem;
+            color: #666;
+            margin-top: 0.3rem;
+            text-align: center;
         }
         .delivery-fee-note {
             font-size: 0.85rem;
@@ -795,9 +810,15 @@
             background: #f2c94c;
             color: black;
         }
+        .modal-add-btn:hover {
+            background: #e5bb3c;
+        }
         .modal-buy-btn {
             background: #25D366;
             color: white;
+        }
+        .modal-buy-btn:hover {
+            background: #20b859;
         }
         .cart-overlay {
             position: fixed;
@@ -938,6 +959,13 @@
             margin: 0.8rem 0;
             cursor: pointer;
             border: 2px solid #128C7E;
+            transition: 0.2s;
+        }
+        .whatsapp-checkout:hover {
+            background: #20b859;
+        }
+        .whatsapp-checkout:active {
+            transform: scale(0.98);
         }
         .footer {
             background: #1e1e1e;
@@ -1378,6 +1406,38 @@
             color: #f2c94c;
             font-size: 1.2rem;
         }
+        
+        /* Map link styles */
+        .map-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            background: #f2c94c;
+            color: #1a1a1a;
+            padding: 5px 12px;
+            border-radius: 30px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            text-decoration: none;
+            margin-top: 5px;
+            transition: 0.2s;
+        }
+        .map-link:hover {
+            background: #e5bb3c;
+            transform: translateY(-2px);
+        }
+        .location-details {
+            background: #f0f0f0;
+            border-radius: 15px;
+            padding: 0.8rem;
+            margin: 0.5rem 0;
+            font-size: 0.9rem;
+        }
+        .location-coords {
+            color: #666;
+            font-size: 0.8rem;
+            font-family: monospace;
+        }
     </style>
 </head>
 <body>
@@ -1495,10 +1555,11 @@
                     <!-- Address Section with Location Detection -->
                     <div class="address-section">
                         <strong>Delivery Address:</strong>
-                        <textarea id="modalDeliveryAddress" class="address-input" rows="2" placeholder="Enter your full address..."></textarea>
+                        <textarea id="modalDeliveryAddress" class="address-input" rows="3" placeholder="Enter your full address..."></textarea>
                         <button class="detect-location-btn" onclick="detectLocation('modalDeliveryAddress')">
                             <i class="fas fa-map-marker-alt"></i> Detect My Location
                         </button>
+                        <div id="modalLocationStatus" class="location-status"></div>
                         <div class="delivery-fee-note" id="modalDeliveryFeeNote">Standard delivery: ₹49 under ₹499, free above</div>
                     </div>
                     
@@ -1536,10 +1597,11 @@
             <!-- Address Section in Cart -->
             <div class="address-section" style="margin:1rem 0;">
                 <strong>Delivery Address:</strong>
-                <textarea id="cartAddress" class="address-input" rows="2" placeholder="Enter your full address..."><?php echo isset($_POST['address']) ? htmlspecialchars($_POST['address']) : ''; ?></textarea>
+                <textarea id="cartAddress" class="address-input" rows="3" placeholder="Enter your full address..."></textarea>
                 <button class="detect-location-btn" onclick="detectLocation('cartAddress')">
                     <i class="fas fa-map-marker-alt"></i> Detect My Location
                 </button>
+                <div id="cartLocationStatus" class="location-status"></div>
             </div>
             
             <div class="delivery-options" style="margin:1rem 0;">
@@ -1727,6 +1789,9 @@
         // Global address storage - persists across modal and cart
         let userAddress = localStorage.getItem('solemates_address') || '';
         
+        // Store last detected location coordinates for map link
+        let lastLocation = JSON.parse(localStorage.getItem('solemates_last_location')) || null;
+        
         const WHATSAPP_NUMBER = '919030175006';
         const DELIVERY_FEE = 49;
         const ADMIN_PASSWORD = 'mustafa006';
@@ -1816,9 +1881,14 @@
         }
 
         // ========== ADDRESS MANAGEMENT ==========
-        function updateAddress(address, source) {
+        function updateAddress(address, source, locationData = null) {
             userAddress = address;
             localStorage.setItem('solemates_address', userAddress);
+            
+            if (locationData) {
+                lastLocation = locationData;
+                localStorage.setItem('solemates_last_location', JSON.stringify(lastLocation));
+            }
             
             // Update all address fields
             const modalAddress = document.getElementById('modalDeliveryAddress');
@@ -1826,7 +1896,122 @@
             
             if (modalAddress) modalAddress.value = userAddress;
             if (cartAddress) cartAddress.value = userAddress;
+            
+            // Update status messages
+            if (locationData) {
+                const modalStatus = document.getElementById('modalLocationStatus');
+                const cartStatus = document.getElementById('cartLocationStatus');
+                
+                const statusMsg = `📍 Location detected: ${locationData.area || 'Area detected'}`;
+                if (modalStatus) modalStatus.textContent = statusMsg;
+                if (cartStatus) cartStatus.textContent = statusMsg;
+            }
         }
+
+        // ========== LOCATION DETECTION ==========
+        window.detectLocation = function(textareaId) {
+            if (!navigator.geolocation) { 
+                alert('Geolocation not supported'); 
+                return; 
+            }
+            
+            const statusElement = document.getElementById(textareaId === 'modalDeliveryAddress' ? 'modalLocationStatus' : 'cartLocationStatus');
+            if (statusElement) statusElement.textContent = '📍 Detecting location...';
+            
+            navigator.geolocation.getCurrentPosition(
+                async (pos) => {
+                    const lat = pos.coords.latitude;
+                    const lng = pos.coords.longitude;
+                    
+                    try {
+                        // First try OpenStreetMap Nominatim for detailed address
+                        const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&addressdetails=1`);
+                        const data = await response.json();
+                        
+                        // Extract meaningful address components
+                        const addressParts = [];
+                        let areaName = '';
+                        
+                        if (data.address) {
+                            // Build a clean address
+                            if (data.address.road) addressParts.push(data.address.road);
+                            if (data.address.suburb) {
+                                addressParts.push(data.address.suburb);
+                                areaName = data.address.suburb;
+                            }
+                            if (data.address.city || data.address.town || data.address.village) {
+                                const city = data.address.city || data.address.town || data.address.village;
+                                addressParts.push(city);
+                                if (!areaName) areaName = city;
+                            }
+                            if (data.address.state) addressParts.push(data.address.state);
+                            if (data.address.postcode) addressParts.push(data.address.postcode);
+                        }
+                        
+                        const fullAddress = addressParts.length > 0 
+                            ? addressParts.join(', ')
+                            : data.display_name || `${lat}, ${lng}`;
+                        
+                        // Create location data object
+                        const locationData = {
+                            lat: lat,
+                            lng: lng,
+                            address: fullAddress,
+                            area: areaName || 'Unknown area',
+                            fullData: data
+                        };
+                        
+                        document.getElementById(textareaId).value = fullAddress;
+                        updateAddress(fullAddress, textareaId, locationData);
+                        
+                        if (statusElement) {
+                            statusElement.innerHTML = `📍 Location detected: ${areaName || 'Area detected'}<br>
+                                <small class="location-coords">${lat.toFixed(6)}, ${lng.toFixed(6)}</small>`;
+                        }
+                    } catch (error) {
+                        console.error('Reverse geocoding failed:', error);
+                        
+                        // Fallback to coordinates with area name from Google Maps if possible
+                        const fallbackAddress = `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
+                        const locationData = {
+                            lat: lat,
+                            lng: lng,
+                            address: fallbackAddress,
+                            area: 'Location detected',
+                            fullData: null
+                        };
+                        
+                        document.getElementById(textareaId).value = fallbackAddress;
+                        updateAddress(fallbackAddress, textareaId, locationData);
+                        
+                        if (statusElement) {
+                            statusElement.innerHTML = `📍 Location detected<br>
+                                <small class="location-coords">${lat.toFixed(6)}, ${lng.toFixed(6)}</small>`;
+                        }
+                    }
+                },
+                (error) => {
+                    console.error('Geolocation error:', error);
+                    let errorMsg = 'Could not detect location. ';
+                    switch(error.code) {
+                        case error.PERMISSION_DENIED:
+                            errorMsg += 'Please enable location access and try again.';
+                            break;
+                        case error.POSITION_UNAVAILABLE:
+                            errorMsg += 'Location information unavailable.';
+                            break;
+                        case error.TIMEOUT:
+                            errorMsg += 'Location request timed out.';
+                            break;
+                        default:
+                            errorMsg += 'Please enter manually.';
+                    }
+                    
+                    if (statusElement) statusElement.textContent = '❌ ' + errorMsg;
+                    alert(errorMsg);
+                }
+            );
+        };
 
         // ========== SEARCH FUNCTION ==========
         window.searchProducts = function() {
@@ -1920,42 +2105,6 @@
             setTimeout(() => {
                 document.getElementById('modalBuyNow').click();
             }, 500);
-        };
-
-        // ========== LOCATION DETECTION ==========
-        window.detectLocation = function(textareaId) {
-            if (!navigator.geolocation) { 
-                alert('Geolocation not supported'); 
-                return; 
-            }
-            
-            navigator.geolocation.getCurrentPosition(
-                (pos) => {
-                    const lat = pos.coords.latitude;
-                    const lng = pos.coords.longitude;
-                    
-                    // Use reverse geocoding to get address
-                    fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`)
-                        .then(response => response.json())
-                        .then(data => {
-                            const address = data.display_name || `${lat}, ${lng}`;
-                            document.getElementById(textareaId).value = address;
-                            
-                            // Update global address
-                            updateAddress(address, textareaId);
-                        })
-                        .catch(() => {
-                            // Fallback to coordinates
-                            const address = `Location: ${lat}, ${lng}`;
-                            document.getElementById(textareaId).value = address;
-                            updateAddress(address, textareaId);
-                        });
-                },
-                (error) => {
-                    alert('Could not detect location. Please enter manually.');
-                    console.error('Geolocation error:', error);
-                }
-            );
         };
 
         // ========== CART FUNCTIONS ==========
@@ -2081,6 +2230,15 @@
             // Load saved address
             const modalAddress = document.getElementById('modalDeliveryAddress');
             if (modalAddress) modalAddress.value = userAddress;
+            
+            // Show last location status if available
+            if (lastLocation) {
+                const modalStatus = document.getElementById('modalLocationStatus');
+                if (modalStatus) {
+                    modalStatus.innerHTML = `📍 Last detected: ${lastLocation.area || 'Location'}<br>
+                        <small class="location-coords">${lastLocation.lat.toFixed(6)}, ${lastLocation.lng.toFixed(6)}</small>`;
+                }
+            }
             
             // Calculate price with all discounts
             let dPrice = getDiscountedPrice(p); 
@@ -2323,16 +2481,34 @@
             const delivery = isPickup ? 0 : (total < 499 ? DELIVERY_FEE : 0);
             const grandTotal = total + delivery;
             
-            let msg = `*New Order from SOLE MATES*%0A%0A`;
-            msg += `*Product:* ${currentProduct.name}%0A`;
-            if (selectedSize) msg += `*Size:* ${selectedSize}%0A`;
-            msg += `*Quantity:* ${currentModalQuantity}%0A`;
-            msg += `*Price per piece:* ₹${price}%0A`;
-            msg += `*Subtotal:* ₹${total}%0A`;
-            msg += `*Delivery:* ${isPickup ? 'Store Pickup (Free)' : (delivery > 0 ? '₹' + delivery : 'Free')}%0A`;
-            msg += `*Grand Total:* ₹${grandTotal}%0A%0A`;
-            msg += `*Delivery Address:* ${address}%0A%0A`;
-            msg += `🛍️ Thank you for shopping with us!`;
+            // Create Google Maps link
+            let mapLink = '';
+            if (lastLocation) {
+                mapLink = `📍 *Map Link:* https://www.google.com/maps?q=${lastLocation.lat},${lastLocation.lng}\n`;
+            }
+            
+            let msg = `*🛍️ NEW ORDER from SOLE MATES*%0A%0A`;
+            msg += `━━━━━━━━━━━━━━━━%0A`;
+            msg += `*Product Details:*%0A`;
+            msg += `• Product: ${currentProduct.name}%0A`;
+            if (selectedSize) msg += `• Size: ${selectedSize}%0A`;
+            msg += `• Quantity: ${currentModalQuantity}%0A`;
+            msg += `• Price per piece: ₹${price}%0A`;
+            msg += `━━━━━━━━━━━━━━━━%0A`;
+            msg += `*Payment Summary:*%0A`;
+            msg += `• Subtotal: ₹${total}%0A`;
+            msg += `• Delivery: ${isPickup ? 'Store Pickup (Free)' : (delivery > 0 ? '₹' + delivery : 'Free')}%0A`;
+            msg += `• *Grand Total: ₹${grandTotal}*%0A`;
+            msg += `━━━━━━━━━━━━━━━━%0A`;
+            msg += `*Delivery Information:*%0A`;
+            msg += `• Address: ${address}%0A`;
+            if (mapLink) msg += mapLink;
+            if (lastLocation) {
+                msg += `• Area: ${lastLocation.area || 'N/A'}%0A`;
+                msg += `• Coordinates: ${lastLocation.lat.toFixed(6)}, ${lastLocation.lng.toFixed(6)}%0A`;
+            }
+            msg += `━━━━━━━━━━━━━━━━%0A`;
+            msg += `✅ *Thank you for shopping with us!*`;
             
             window.open(`https://wa.me/${WHATSAPP_NUMBER}?text=${msg}`, '_blank');
         });
@@ -2361,19 +2537,38 @@
             const delivery = isPickup ? 0 : (subtotal < 499 ? DELIVERY_FEE : 0);
             const total = subtotal + delivery;
             
+            // Create Google Maps link
+            let mapLink = '';
+            if (lastLocation) {
+                mapLink = `📍 *Map Link:* https://www.google.com/maps?q=${lastLocation.lat},${lastLocation.lng}\n`;
+            }
+            
             let orderItems = cart.map(i => {
-                let item = `${i.name} - ${i.quantity} x ₹${i.price} = ₹${(i.price || 0) * (i.quantity || 0)}`;
+                let item = `• ${i.name}`;
                 if (i.size) item += ` (Size: ${i.size})`;
+                item += ` - ${i.quantity} x ₹${i.price} = ₹${(i.price || 0) * (i.quantity || 0)}`;
                 return item;
             }).join('%0A');
             
-            let msg = `*New Order from SOLE MATES*%0A%0A`;
-            msg += `${orderItems}%0A%0A`;
-            msg += `*Subtotal: ₹${subtotal}*%0A`;
-            msg += `${isPickup ? 'Store Pickup' : delivery > 0 ? 'Delivery: ₹' + delivery : 'Delivery: Free'}%0A`;
-            msg += `*Grand Total: ₹${total}*%0A%0A`;
-            msg += `*Delivery Address:* ${address}%0A%0A`;
-            msg += `🛍️ Thank you for shopping with us!`;
+            let msg = `*🛍️ NEW ORDER from SOLE MATES*%0A%0A`;
+            msg += `━━━━━━━━━━━━━━━━%0A`;
+            msg += `*Cart Items:*%0A`;
+            msg += `${orderItems}%0A`;
+            msg += `━━━━━━━━━━━━━━━━%0A`;
+            msg += `*Payment Summary:*%0A`;
+            msg += `• Subtotal: ₹${subtotal}%0A`;
+            msg += `• Delivery: ${isPickup ? 'Store Pickup (Free)' : (delivery > 0 ? '₹' + delivery : 'Free')}%0A`;
+            msg += `• *Grand Total: ₹${total}*%0A`;
+            msg += `━━━━━━━━━━━━━━━━%0A`;
+            msg += `*Delivery Information:*%0A`;
+            msg += `• Address: ${address}%0A`;
+            if (mapLink) msg += mapLink;
+            if (lastLocation) {
+                msg += `• Area: ${lastLocation.area || 'N/A'}%0A`;
+                msg += `• Coordinates: ${lastLocation.lat.toFixed(6)}, ${lastLocation.lng.toFixed(6)}%0A`;
+            }
+            msg += `━━━━━━━━━━━━━━━━%0A`;
+            msg += `✅ *Thank you for shopping with us!*`;
             
             window.open(`https://wa.me/${WHATSAPP_NUMBER}?text=${msg}`, '_blank');
         });
@@ -2424,6 +2619,13 @@
         document.getElementById('cartToggle').addEventListener('click', () => { 
             renderCartSidebar(); 
             document.getElementById('cartOverlay').style.display = 'flex'; 
+            
+            // Update cart location status
+            const cartStatus = document.getElementById('cartLocationStatus');
+            if (cartStatus && lastLocation) {
+                cartStatus.innerHTML = `📍 Last detected: ${lastLocation.area || 'Location'}<br>
+                    <small class="location-coords">${lastLocation.lat.toFixed(6)}, ${lastLocation.lng.toFixed(6)}</small>`;
+            }
         });
         
         document.getElementById('closeCartBtn').addEventListener('click', () => {
@@ -2785,7 +2987,17 @@
         
         if (userAddress) {
             if (cartAddress) cartAddress.value = userAddress;
-            if (modalAddress) modalAddress.value = userAddress;
+            if (modalAddress) modalAddress.value = modalAddress;
+        }
+        
+        // Show last location status if available
+        if (lastLocation) {
+            const modalStatus = document.getElementById('modalLocationStatus');
+            const cartStatus = document.getElementById('cartLocationStatus');
+            const statusMsg = `📍 Last detected: ${lastLocation.area || 'Location'}<br>
+                <small class="location-coords">${lastLocation.lat.toFixed(6)}, ${lastLocation.lng.toFixed(6)}</small>`;
+            if (modalStatus) modalStatus.innerHTML = statusMsg;
+            if (cartStatus) cartStatus.innerHTML = statusMsg;
         }
         
         loadFromFirebase();
@@ -2824,4 +3036,3 @@
     </script>
 </body>
 </html>
-
