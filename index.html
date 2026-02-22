@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0">
-    <title>SOLE MATES</title>
+    <title>SOLE MATES · LIVE SYNC</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
     <!-- Firebase SDKs -->
@@ -1495,8 +1495,8 @@
                     <!-- Address Section with Location Detection -->
                     <div class="address-section">
                         <strong>Delivery Address:</strong>
-                        <textarea id="deliveryAddress" class="address-input" rows="2" placeholder="Enter your full address..."></textarea>
-                        <button class="detect-location-btn" onclick="detectLocation('deliveryAddress')">
+                        <textarea id="modalDeliveryAddress" class="address-input" rows="2" placeholder="Enter your full address..."></textarea>
+                        <button class="detect-location-btn" onclick="detectLocation('modalDeliveryAddress')">
                             <i class="fas fa-map-marker-alt"></i> Detect My Location
                         </button>
                         <div class="delivery-fee-note" id="modalDeliveryFeeNote">Standard delivery: ₹49 under ₹499, free above</div>
@@ -1536,7 +1536,7 @@
             <!-- Address Section in Cart -->
             <div class="address-section" style="margin:1rem 0;">
                 <strong>Delivery Address:</strong>
-                <textarea id="cartAddress" class="address-input" rows="2" placeholder="Enter your full address..."></textarea>
+                <textarea id="cartAddress" class="address-input" rows="2" placeholder="Enter your full address..."><?php echo isset($_POST['address']) ? htmlspecialchars($_POST['address']) : ''; ?></textarea>
                 <button class="detect-location-btn" onclick="detectLocation('cartAddress')">
                     <i class="fas fa-map-marker-alt"></i> Detect My Location
                 </button>
@@ -1724,6 +1724,9 @@
         let currentModalQuantity = 1;
         let selectedSize = null;
         
+        // Global address storage - persists across modal and cart
+        let userAddress = localStorage.getItem('solemates_address') || '';
+        
         const WHATSAPP_NUMBER = '919030175006';
         const DELIVERY_FEE = 49;
         const ADMIN_PASSWORD = 'mustafa006';
@@ -1810,6 +1813,19 @@
                         syncStatus.style.background = '#28a745';
                     }, 2000);
                 });
+        }
+
+        // ========== ADDRESS MANAGEMENT ==========
+        function updateAddress(address, source) {
+            userAddress = address;
+            localStorage.setItem('solemates_address', userAddress);
+            
+            // Update all address fields
+            const modalAddress = document.getElementById('modalDeliveryAddress');
+            const cartAddress = document.getElementById('cartAddress');
+            
+            if (modalAddress) modalAddress.value = userAddress;
+            if (cartAddress) cartAddress.value = userAddress;
         }
 
         // ========== SEARCH FUNCTION ==========
@@ -1924,10 +1940,15 @@
                         .then(data => {
                             const address = data.display_name || `${lat}, ${lng}`;
                             document.getElementById(textareaId).value = address;
+                            
+                            // Update global address
+                            updateAddress(address, textareaId);
                         })
                         .catch(() => {
                             // Fallback to coordinates
-                            document.getElementById(textareaId).value = `Location: ${lat}, ${lng}`;
+                            const address = `Location: ${lat}, ${lng}`;
+                            document.getElementById(textareaId).value = address;
+                            updateAddress(address, textareaId);
                         });
                 },
                 (error) => {
@@ -2056,6 +2077,10 @@
             selectedSize = null;
             document.getElementById('modalQuantity').textContent = '1';
             document.getElementById('selectedSizeDisplay').textContent = 'Not selected';
+            
+            // Load saved address
+            const modalAddress = document.getElementById('modalDeliveryAddress');
+            if (modalAddress) modalAddress.value = userAddress;
             
             // Calculate price with all discounts
             let dPrice = getDiscountedPrice(p); 
@@ -2259,6 +2284,12 @@
                 return;
             }
             
+            // Update address from modal before adding to cart
+            const modalAddress = document.getElementById('modalDeliveryAddress').value.trim();
+            if (modalAddress) {
+                updateAddress(modalAddress, 'modal');
+            }
+            
             addToCart(currentProduct.id, selectedSize, currentModalQuantity); 
             document.getElementById('productModal').style.display = 'none'; 
             document.body.style.overflow = 'auto'; 
@@ -2274,7 +2305,13 @@
                 return;
             }
             
-            const address = document.getElementById('deliveryAddress').value.trim();
+            // Update address from modal
+            const modalAddress = document.getElementById('modalDeliveryAddress').value.trim();
+            if (modalAddress) {
+                updateAddress(modalAddress, 'modal');
+            }
+            
+            const address = userAddress || document.getElementById('modalDeliveryAddress').value.trim();
             if (!address) {
                 alert('Please enter your delivery address');
                 return;
@@ -2307,7 +2344,13 @@
                 return; 
             }
             
-            const address = document.getElementById('cartAddress').value.trim();
+            // Update address from cart
+            const cartAddress = document.getElementById('cartAddress').value.trim();
+            if (cartAddress) {
+                updateAddress(cartAddress, 'cart');
+            }
+            
+            const address = userAddress || document.getElementById('cartAddress').value.trim();
             if (!address) {
                 alert('Please enter your delivery address');
                 return;
@@ -2736,6 +2779,15 @@
         });
 
         // ========== INITIALIZE ==========
+        // Load saved address
+        const cartAddress = document.getElementById('cartAddress');
+        const modalAddress = document.getElementById('modalDeliveryAddress');
+        
+        if (userAddress) {
+            if (cartAddress) cartAddress.value = userAddress;
+            if (modalAddress) modalAddress.value = userAddress;
+        }
+        
         loadFromFirebase();
         updateCart();
         loadPopup();
